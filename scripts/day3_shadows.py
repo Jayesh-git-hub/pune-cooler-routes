@@ -40,6 +40,8 @@ def get_buildings_and_trees():
         trees_wgs = trees_wgs[['geometry', 'height']].copy()
         
         combined = pd.concat([buildings, trees_wgs], ignore_index=True)
+        combined = gpd.GeoDataFrame(combined, geometry='geometry', crs="EPSG:4326")
+        combined['building_id'] = range(len(combined))
         print(f"Loaded {len(buildings)} buildings and {len(trees_wgs)} trees.")
     except Exception as e:
         print("Could not load trees:", e)
@@ -51,9 +53,9 @@ def calculate_shadows(combined, edges):
     print("Calculating shadows for different times (Solving Loophole 4: Dynamic Times)...")
     # Datetimes in UTC. India is UTC+5:30.
     times = [
-        ("0900", datetime.datetime(2024, 5, 15, 3, 30)),
-        ("1300", datetime.datetime(2024, 5, 15, 7, 30)),
-        ("1600", datetime.datetime(2024, 5, 15, 10, 30))
+        ("0900", datetime.datetime(2024, 5, 15, 9, 0)),
+        ("1300", datetime.datetime(2024, 5, 15, 13, 0)),
+        ("1600", datetime.datetime(2024, 5, 15, 16, 0))
     ]
     
     edges_proj = edges.to_crs(combined.estimate_utm_crs())
@@ -61,6 +63,7 @@ def calculate_shadows(combined, edges):
     for label, dt in times:
         print(f"Processing time {label}...")
         shadows = pybdshadow.bdshadow_sunlight(combined, dt, height='height')
+        shadows.set_crs("EPSG:4326", allow_override=True, inplace=True)
         shadows_proj = shadows.to_crs(edges_proj.crs)
         
         print(f"Intersecting {len(shadows_proj)} shadows with {len(edges_proj)} edges using spatial join...")
