@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pune Cooler Routes - Smart Shade-Aware Pedestrian Navigation</title>
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Application CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    
+    <!-- Sidebar / Floating Glass Panel -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="brand">
+          <div class="logo-icon">🌿</div>
+          <div>
+            <h1>Pune Cooler Routes</h1>
+            <p class="subtitle">Shade-Aware Pedestrian Navigator • Pilot Area</p>
+          </div>
+        </div>
+        <div class="status-badge" id="networkStatus">
+          <span class="status-dot"></span> 3,971 Nodes Active
+        </div>
+      </header>
+
+      <!-- Controls Form -->
+      <section class="controls-section">
+        <!-- Quick Landmarks -->
+        <div class="control-group">
+          <label class="group-label">Quick Landmark Presets</label>
+          <div class="preset-chips" id="presetChips">
+            <button class="chip active" data-from="mit_wpu" data-to="fergusson">MIT ➔ Fergusson</button>
+            <button class="chip" data-from="deccan" data-to="ils_law">Deccan ➔ ILS Law</button>
+            <button class="chip" data-from="bmcc" data-to="sambhaji_park">BMCC ➔ Sambhaji</button>
+            <button class="chip" data-from="kamla_nehru" data-to="fc_market">Prabhat Rd ➔ FC Mkt</button>
+          </div>
+        </div>
+
+        <!-- Custom Origin / Destination Pickers -->
+        <div class="route-inputs">
+          <div class="input-card">
+            <span class="pin-indicator start-pin">●</span>
+            <div class="input-details">
+              <label for="startSelect">Origin (Start)</label>
+              <select id="startSelect" class="location-select"></select>
+            </div>
+          </div>
+          <div class="route-swap-btn" id="swapLocationsBtn" title="Swap Locations">⇅</div>
+          <div class="input-card">
+            <span class="pin-indicator end-pin">●</span>
+            <div class="input-details">
+              <label for="destSelect">Destination (End)</label>
+              <select id="destSelect" class="location-select"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Time of Day Selector -->
+        <div class="control-group">
+          <div class="label-with-val">
+            <label class="group-label">Time of Day (Sun Angle)</label>
+            <span class="active-val" id="timeLabel">13:00 (Midday Sun)</span>
+          </div>
+          <div class="time-buttons">
+            <button class="time-btn" data-hour="9">☀️ 09:00<br><small>Morning</small></button>
+            <button class="time-btn active" data-hour="13">🔥 13:00<br><small>Midday</small></button>
+            <button class="time-btn" data-hour="16">🌤️ 16:00<br><small>Afternoon</small></button>
+            <button class="time-btn" data-hour="live">⏱️ Live<br><small>Clock</small></button>
+          </div>
+        </div>
+
+        <!-- Coolness Multiplier Slider -->
+        <div class="control-group">
+          <div class="label-with-val">
+            <label class="group-label" for="coolnessSlider">Shade Preference</label>
+            <span class="active-val" id="coolnessVal">2.5x (Balanced)</span>
+          </div>
+          <input type="range" id="coolnessSlider" min="1.0" max="5.0" step="0.5" value="2.5" class="range-slider">
+          <div class="slider-labels">
+            <span>Fast / Direct</span>
+            <span>Balanced</span>
+            <span>Maximum Shade</span>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <button id="findRoutesBtn" class="primary-btn">
+          <span class="btn-icon">⚡</span> Calculate Dual Routes
+        </button>
+      </section>
+
+      <!-- Results & Tradeoff Comparison Panel -->
+      <section class="results-section" id="resultsSection">
+        <!-- Tradeoff Summary Banner -->
+        <div class="tradeoff-card" id="tradeoffCard">
+          <div class="tradeoff-icon">🛡️</div>
+          <div class="tradeoff-content">
+            <div class="tradeoff-badge" id="tradeoffBadge">SHADE ADVANTAGE</div>
+            <h3 id="tradeoffVerdict">Calculating optimal route...</h3>
+          </div>
+        </div>
+
+        <!-- Side-by-Side Metric Cards -->
+        <div class="metrics-grid">
+          <!-- Fastest Card -->
+          <div class="metric-card fast-card">
+            <div class="card-header">
+              <span class="route-tag fast-tag">⚡ FASTEST</span>
+              <span class="metric-time" id="fastTime">-- min</span>
+            </div>
+            <div class="metric-stat">
+              <span class="stat-number" id="fastDist">-- m</span>
+              <span class="stat-label">Physical Distance</span>
+            </div>
+            <div class="shade-meter-container">
+              <div class="meter-label">
+                <span>Tree/Building Shade</span>
+                <strong id="fastShadePct">--%</strong>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill fast-fill" id="fastShadeBar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coolest Card -->
+          <div class="metric-card cool-card">
+            <div class="card-header">
+              <span class="route-tag cool-tag">🌿 COOLEST</span>
+              <span class="metric-time" id="coolTime">-- min</span>
+            </div>
+            <div class="metric-stat">
+              <span class="stat-number" id="coolDist">-- m</span>
+              <span class="stat-label">Cool-Weighted Distance</span>
+            </div>
+            <div class="shade-meter-container">
+              <div class="meter-label">
+                <span>Tree/Building Shade</span>
+                <strong id="coolShadePct" class="highlight-green">--%</strong>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill cool-fill" id="coolShadeBar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tradeoff Delta Stats -->
+        <div class="delta-chips">
+          <div class="delta-chip" id="deltaDistChip">
+            <span>Extra Walking:</span> <strong id="deltaDist">+0 m</strong>
+          </div>
+          <div class="delta-chip" id="deltaTimeChip">
+            <span>Detour Time:</span> <strong id="deltaTime">+0.0 min</strong>
+          </div>
+          <div class="delta-chip highlight" id="deltaShadeChip">
+            <span>Extra Shade:</span> <strong id="deltaShade">+0.0%</strong>
+          </div>
+        </div>
+
+        <!-- Turn-by-turn Navigation Steps Accordion -->
+        <div class="steps-container">
+          <button class="accordion-toggle" id="toggleStepsBtn">
+            <span>🚶 Turn-by-Turn Cool Route Steps</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="steps-list" id="stepsList"></div>
+        </div>
+
+        <!-- Export & Share Action -->
+        <div class="export-actions">
+          <button class="action-btn" id="exportGeoJsonBtn">📥 Download GeoJSON</button>
+          <button class="action-btn" id="resetPinsBtn">📍 Reset Pins</button>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <p>Built for Pune Walkers • OpenStreetMap & pybdshadow shadow dynamics</p>
+      </footer>
+    </aside>
+
+    <!-- Map Canvas -->
+    <main class="map-container">
+      <div id="map"></div>
+      
+      <!-- Floating Map Legend -->
+      <div class="map-legend">
+        <h4>Navigation Layers</h4>
+        <div class="legend-item">
+          <span class="legend-line fast-line"></span>
+          <span>Fastest Walking Route</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-line cool-line"></span>
+          <span>Coolest Shaded Route</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-box boundary-box"></span>
+          <span>Pune Pilot Bounding Box</span>
+        </div>
+        <p class="legend-tip">💡 Tip: Click anywhere inside the box to set custom Start / End pins!</p>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Application JS -->
+  <script src="app.js"></script>
+</body>
+</html>
