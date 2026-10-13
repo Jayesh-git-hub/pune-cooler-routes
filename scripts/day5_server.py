@@ -1,12 +1,15 @@
 """
 day5_server.py
 Lightweight HTTP server providing REST API and serving the Web UI for Pune Cooler Routes.
+Supports both Day 5 Dual Routing and Day 6 Multi-Criteria Thermal Comfort Routing.
+
 Endpoints:
   GET /                     -> Serves web/index.html
   GET /style.css            -> Serves web/style.css
   GET /app.js               -> Serves web/app.js
   GET /api/landmarks        -> Returns list of popular Pune landmarks
-  GET /api/route            -> Dual-route calculation (start_lat, start_lon, dest_lat, dest_lon, hour, coolness)
+  GET /api/route            -> Dual-route calculation (start_lat, start_lon, dest_lat, dest_lon, hour, coolness, mode)
+  GET /api/benchmark        -> Returns summary of Day 6 25-route benchmark
   GET /api/status           -> Health & network metadata
 """
 import os
@@ -15,20 +18,20 @@ import json
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Add scripts directory to sys.path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from day5_engine import CoolerRouter, PUNE_LANDMARKS
-from config import BBOX
+from day6_router import Day6MultiCriteriaRouter
+from config import BBOX, OUTPUTS_DIR
 
 WEB_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "web")
-router_instance = None
+router_v5 = None
+router_v6 = None
 
 class CoolerHTTPHandler(BaseHTTPRequestHandler):
     def end_headers(self):
-        # Enable CORS for local testing
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -57,11 +60,20 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 "city": "Pune, Maharashtra, India",
                 "pilot_bbox": BBOX,
                 "landmarks_count": len(PUNE_LANDMARKS),
-                "nodes": len(router_instance.G.nodes) if router_instance else 0,
-                "edges": len(router_instance.G.edges) if router_instance else 0
+                "nodes": len(router_v5.G.nodes) if router_v5 else 0,
+                "edges": len(router_v5.G.edges) if router_v5 else 0,
+                "day_version": "Day 6 Production"
             })
         elif path == '/api/route':
             self._handle_route_query(query)
+        elif path == '/api/benchmark':
+            csv_path = os.path.join(OUTPUTS_DIR, "day6_benchmark_25routes.csv")
+            if os.path.exists(csv_path):
+                import pandas as pd
+                df = pd.read_csv(csv_path)
+                self._send_json(df.to_dict(orient='records'))
+            else:
+                self._send_json({"error": "Benchmark data not yet generated"}, status=404)
         else:
             self.send_error(404, "File not found")
 
@@ -101,40 +113,51 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
             cool_str = query.get('coolness', ['2.5'])[0]
             coolness = float(cool_str) if cool_str else 2.5
 
+            mode = query.get('mode', ['standard'])[0]
+
             if not (orig_lat and orig_lon and dest_lat and dest_lon):
-                self._send_json({"error": "Missing start_lat, start_lon, dest_lat, or dest_lon"}, status=400)
+                self._send_json({"error": "Missing coordinates"}, status=400)
                 return
 
-            routes_data = router_instance.compute_dual_routes(
-                orig_lat=orig_lat, orig_lon=orig_lon,
-                dest_lat=dest_lat, dest_lon=dest_lon,
-                hour=hour, coolness_mult=coolness
-            )
+            if mode in ('balanced', 'multicriteria', 'day6'):
+                import datetime
+                dt = datetime.datetime.now().replace(hour=hour if hour is not None else 13, minute=0)
+                routes_data = router_v6.route(
+                    orig_lat=orig_lat, orig_lon=orig_lon,
+                    dest_lat=dest_lat, dest_lon=dest_lon,
+                    start_dt=dt, w_shade=coolness
+                )
+            else:
+                routes_data = router_v5.compute_dual_routes(
+                    orig_lat=orig_lat, orig_lon=orig_lon,
+                    dest_lat=dest_lat, dest_lon=dest_lon,
+                    hour=hour, coolness_mult=coolness
+                )
 
             if not routes_data:
-                self._send_json({"error": "No route could be found between specified locations"}, status=404)
+                self._send_json({"error": "No path exists between coordinates"}, status=404)
                 return
 
             self._send_json(routes_data)
 
         except Exception as e:
-            self._send_json({"error": f"Route computation failed: {str(e)}"}, status=500)
+            self._send_json({"error": f"Routing computation failed: {str(e)}"}, status=500)
 
 def run_server(port=8050):
-    global router_instance
-    print("Loading graph network & shade models into memory...")
-    router_instance = CoolerRouter()
+    global router_v5, router_v6
+    print("Loading Day 5 and Day 6 routing networks...")
+    router_v5 = CoolerRouter()
+    router_v6 = Day6MultiCriteriaRouter()
     server_address = ('127.0.0.1', port)
     httpd = HTTPServer(server_address, CoolerHTTPHandler)
     print(f"\n=======================================================")
-    print(f" Pune Cooler Routes - Day 5 Web Application Server")
-    print(f" Live at: http://127.0.0.1:{port}")
-    print(f" REST API: http://127.0.0.1:{port}/api/route")
+    print(f" Pune Cooler Routes - Server Live")
+    print(f" Port: http://127.0.0.1:{port}")
     print(f"=======================================================\n")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down server.")
+        print("\nServer stopped.")
         httpd.server_close()
 
 if __name__ == "__main__":

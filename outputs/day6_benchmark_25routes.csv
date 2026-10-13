@@ -1,0 +1,26 @@
+id,origin,destination,fastest_dist_m,fastest_time_min,fastest_shade_pct,fastest_heat_w_m2,coolest_dist_m,coolest_time_min,coolest_shade_pct,coolest_heat_w_m2,balanced_dist_m,balanced_time_min,balanced_shade_pct,detour_distance_m,detour_time_min,shade_gain_pct,solar_radiation_saved_w_m2,apparent_cooling_celsius
+1,"MIT-WPU Campus, Kothrud","Fergusson College, FC Road",4339.0,54.2,40.1,645.9,4421.5,55.3,45.6,600.0,4362.9,54.5,37.2,82.5,1.1,5.5,45.9,4.2
+2,"MIT-WPU Campus, Kothrud",Deccan Gymkhana,3928.3,49.1,47.9,581.3,3934.8,49.2,48.3,577.9,3951.7,49.4,44.2,6.5,0.1,0.4,3.4,4.4
+3,"MIT-WPU Campus, Kothrud",BMCC (Brihan Maharashtra College of Commerce),3493.6,43.7,44.1,612.8,3500.1,43.8,44.5,609.0,3574.7,44.7,39.1,6.5,0.1,0.4,3.8,4.1
+4,"MIT-WPU Campus, Kothrud","ILS Law College, Law College Rd",2821.4,35.3,28.4,743.7,2821.4,35.3,28.4,743.7,2821.4,35.3,28.4,0.0,0.0,0.0,0.0,2.6
+5,"MIT-WPU Campus, Kothrud",Chhatrapati Sambhaji Garden,4370.6,54.6,38.9,656.3,4457.0,55.7,47.1,587.8,4443.9,55.5,44.1,86.4,1.1,8.2,68.5,4.3
+6,"MIT-WPU Campus, Kothrud","Kamla Nehru Park, Prabhat Rd",2981.8,37.3,39.4,651.7,2981.8,37.3,39.4,651.7,2981.8,37.3,39.4,0.0,0.0,0.0,0.0,3.6
+7,"MIT-WPU Campus, Kothrud","MES Garware College, Karve Rd",3058.9,38.2,20.9,806.0,3445.0,43.1,40.3,644.2,3419.1,42.7,37.8,386.1,4.9,19.4,161.8,3.7
+8,"MIT-WPU Campus, Kothrud",FC Road Shopping Street,4715.3,58.9,37.3,669.3,4818.4,60.2,42.9,622.9,4888.3,61.1,37.0,103.1,1.3,5.6,46.4,3.9
+9,"Fergusson College, FC Road",Deccan Gymkhana,755.7,9.4,13.3,868.9,755.7,9.4,13.3,868.9,937.9,11.7,29.7,0.0,0.0,0.0,0.0,1.2
+10,"Fergusson College, FC Road",BMCC (Brihan Maharashtra College of Commerce),1392.2,17.4,30.8,723.2,1419.3,17.7,38.4,659.7,1393.2,17.4,31.3,27.1,0.3,7.6,63.5,3.5
+11,"Fergusson College, FC Road","ILS Law College, Law College Rd",3955.8,49.4,35.3,686.2,4031.8,50.4,39.8,648.1,3979.7,49.7,31.9,76.0,1.0,4.5,38.1,3.7
+12,"Fergusson College, FC Road",Chhatrapati Sambhaji Garden,1069.9,13.4,24.7,774.4,1069.9,13.4,24.7,774.4,1089.3,13.6,25.0,0.0,0.0,0.0,0.0,2.3
+13,"Fergusson College, FC Road","Kamla Nehru Park, Prabhat Rd",2094.3,26.2,30.0,730.4,2141.9,26.8,33.5,700.7,2141.9,26.8,33.5,47.6,0.6,3.5,29.7,3.1
+14,"Fergusson College, FC Road","MES Garware College, Karve Rd",2273.7,28.4,13.0,871.3,2421.8,30.3,27.9,748.0,2562.5,32.0,31.7,148.1,1.9,14.9,123.3,2.6
+15,"Fergusson College, FC Road",FC Road Shopping Street,676.9,8.5,15.6,850.2,697.5,8.7,19.4,818.2,697.5,8.7,19.4,20.6,0.2,3.8,32.0,1.8
+16,Deccan Gymkhana,BMCC (Brihan Maharashtra College of Commerce),1228.9,15.4,39.7,649.5,1252.7,15.7,41.7,632.9,1262.0,15.8,40.9,23.8,0.3,2.0,16.6,3.8
+17,Deccan Gymkhana,"ILS Law College, Law College Rd",3545.1,44.3,41.6,633.5,3545.1,44.3,41.6,633.5,3568.5,44.6,37.2,0.0,0.0,0.0,0.0,3.8
+18,Deccan Gymkhana,Chhatrapati Sambhaji Garden,567.3,7.1,25.6,766.5,586.2,7.3,35.8,681.7,586.2,7.3,35.8,18.9,0.2,10.2,84.8,3.3
+19,Deccan Gymkhana,"Kamla Nehru Park, Prabhat Rd",1413.9,17.7,33.1,704.0,1421.1,17.8,35.4,685.3,1421.1,17.8,35.4,7.2,0.1,2.3,18.7,3.2
+20,Deccan Gymkhana,"MES Garware College, Karve Rd",1537.8,19.2,13.1,870.8,1559.9,19.5,21.6,800.0,1841.7,23.0,32.4,22.1,0.3,8.5,70.8,2.0
+21,Deccan Gymkhana,FC Road Shopping Street,1132.1,14.2,10.4,893.0,1176.4,14.7,15.5,850.7,1522.8,19.0,22.6,44.3,0.5,5.1,42.3,1.4
+22,BMCC (Brihan Maharashtra College of Commerce),"ILS Law College, Law College Rd",3110.4,38.9,37.2,669.9,3110.4,38.9,37.2,669.9,3191.5,39.9,31.7,0.0,0.0,0.0,0.0,3.4
+23,BMCC (Brihan Maharashtra College of Commerce),Chhatrapati Sambhaji Garden,1719.1,21.5,39.5,650.7,1726.7,21.6,42.0,630.1,1758.7,22.0,41.4,7.6,0.1,2.5,20.6,3.8
+24,BMCC (Brihan Maharashtra College of Commerce),"Kamla Nehru Park, Prabhat Rd",1483.9,18.5,28.9,739.4,1483.9,18.5,28.9,739.4,1483.9,18.5,28.9,0.0,0.0,0.0,0.0,2.6
+25,BMCC (Brihan Maharashtra College of Commerce),"MES Garware College, Karve Rd",1904.6,23.8,27.4,751.5,1904.6,23.8,27.4,751.5,1904.6,23.8,27.4,0.0,0.0,0.0,0.0,2.5
