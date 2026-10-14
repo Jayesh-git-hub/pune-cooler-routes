@@ -50,10 +50,12 @@ class CoolerRouter:
         self.shade_lookup = {}
         for _, row in self.shaded_gdf.iterrows():
             k = (int(row['u']), int(row['v']), int(row['key']))
+            tb = float(row.get('tree_shade_bonus', 0.0) or 0.0)
             self.shade_lookup[k] = {
-                '0900': float(row.get('shade_frac_0900', 0.0) or 0.0),
-                '1300': float(row.get('shade_frac_1300', 0.0) or 0.0),
-                '1600': float(row.get('shade_frac_1600', 0.0) or 0.0),
+                '0900': min(1.0, float(row.get('shade_frac_0900', 0.0) or 0.0) + tb),
+                '1300': min(1.0, float(row.get('shade_frac_1300', 0.0) or 0.0) + tb),
+                '1600': min(1.0, float(row.get('shade_frac_1600', 0.0) or 0.0) + tb),
+                'tree_bonus': tb,
                 'sidewalk': str(row.get('sidewalk', 'unknown')),
                 'highway': str(row.get('highway', 'residential'))
             }

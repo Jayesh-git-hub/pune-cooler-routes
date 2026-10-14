@@ -75,10 +75,12 @@ class Day6MultiCriteriaRouter:
             else:
                 safety_penalty = 1.0
 
+            tb = float(row.get('tree_shade_bonus', 0.0) or 0.0)
             self.edge_meta[k] = {
-                '0900': float(row.get('shade_frac_0900', 0.25) or 0.25),
-                '1300': float(row.get('shade_frac_1300', 0.15) or 0.15),
-                '1600': float(row.get('shade_frac_1600', 0.30) or 0.30),
+                '0900': min(1.0, float(row.get('shade_frac_0900', 0.25) or 0.25) + tb),
+                '1300': min(1.0, float(row.get('shade_frac_1300', 0.15) or 0.15) + tb),
+                '1600': min(1.0, float(row.get('shade_frac_1600', 0.30) or 0.30) + tb),
+                'tree_bonus': tb,
                 'sw_quality': sw_quality,
                 'safety_penalty': safety_penalty,
                 'surface': str(row.get('surface', 'asphalt')).lower(),

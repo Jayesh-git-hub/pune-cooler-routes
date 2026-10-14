@@ -62,7 +62,7 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 "landmarks_count": len(PUNE_LANDMARKS),
                 "nodes": len(router_v5.G.nodes) if router_v5 else 0,
                 "edges": len(router_v5.G.edges) if router_v5 else 0,
-                "day_version": "Day 6 Production"
+                "day_version": "Day 7 Production"
             })
         elif path == '/api/route':
             self._handle_route_query(query)
