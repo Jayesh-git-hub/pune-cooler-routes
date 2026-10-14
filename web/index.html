@@ -1,24 +1,25 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pune Cooler Routes - Smart Shade-Aware Pedestrian Navigation</title>
-  
+  <meta name="description" content="Navigate Pune's streets smartly. Find the shadiest, coolest walking routes using real-time shadow simulation and thermal comfort analysis.">
+
   <!-- Modern Typography from Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-  
+
   <!-- Application CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app-layout">
-    
+
     <!-- Sidebar / Floating Glass Panel -->
     <aside class="sidebar" id="sidebar">
       <!-- Header -->
@@ -81,6 +82,15 @@
           </div>
         </div>
 
+        <!-- Routing Mode Toggle (Day 7 addition) -->
+        <div class="control-group">
+          <label class="group-label">Routing Engine</label>
+          <div class="mode-toggle" id="modeToggle">
+            <button class="mode-btn" data-mode="standard" id="modeStandard">⚡ Standard</button>
+            <button class="mode-btn active" data-mode="balanced" id="modeBalanced">🛡️ Balanced (Day 6)</button>
+          </div>
+        </div>
+
         <!-- Coolness Multiplier Slider -->
         <div class="control-group">
           <div class="label-with-val">
@@ -97,7 +107,7 @@
 
         <!-- Action Button -->
         <button id="findRoutesBtn" class="primary-btn">
-          <span class="btn-icon">⚡</span> Calculate Dual Routes
+          <span class="btn-icon">⚡</span> Calculate Routes
         </button>
       </section>
 
@@ -112,8 +122,26 @@
           </div>
         </div>
 
-        <!-- Side-by-Side Metric Cards -->
-        <div class="metrics-grid">
+        <!-- Thermal Comfort Score (Day 7 addition) -->
+        <div class="thermal-panel" id="thermalPanel" style="display:none">
+          <div class="thermal-row">
+            <span class="thermal-icon">🌡️</span>
+            <div class="thermal-content">
+              <div class="thermal-label">Apparent Temperature Relief</div>
+              <div class="thermal-value" id="thermalRelief">-- °C</div>
+            </div>
+          </div>
+          <div class="thermal-row">
+            <span class="thermal-icon">☀️</span>
+            <div class="thermal-content">
+              <div class="thermal-label">Solar Heat Avoided (Coolest Route)</div>
+              <div class="thermal-value heat-value" id="heatAvoided">-- W/m²</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Three-Route Metric Cards (Day 7: adds Balanced) -->
+        <div class="metrics-grid three-col" id="metricsGrid">
           <!-- Fastest Card -->
           <div class="metric-card fast-card">
             <div class="card-header">
@@ -131,6 +159,27 @@
               </div>
               <div class="meter-bar">
                 <div class="meter-fill fast-fill" id="fastShadeBar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Balanced Card (Day 7 addition) -->
+          <div class="metric-card bal-card" id="balancedCard" style="display:none">
+            <div class="card-header">
+              <span class="route-tag bal-tag">🛡️ BALANCED</span>
+              <span class="metric-time" id="balTime">-- min</span>
+            </div>
+            <div class="metric-stat">
+              <span class="stat-number" id="balDist">-- m</span>
+              <span class="stat-label">Safe + Cool Distance</span>
+            </div>
+            <div class="shade-meter-container">
+              <div class="meter-label">
+                <span>Tree/Building Shade</span>
+                <strong id="balShadePct" class="highlight-purple">--%</strong>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill bal-fill" id="balShadeBar" style="width: 0%"></div>
               </div>
             </div>
           </div>
@@ -170,7 +219,7 @@
           </div>
         </div>
 
-        <!-- Turn-by-turn Navigation Steps Accordion -->
+        <!-- Turn-by-Turn Navigation Steps Accordion -->
         <div class="steps-container">
           <button class="accordion-toggle" id="toggleStepsBtn">
             <span>🚶 Turn-by-Turn Cool Route Steps</span>
@@ -188,20 +237,24 @@
 
       <!-- Footer -->
       <footer class="app-footer">
-        <p>Built for Pune Walkers • OpenStreetMap & pybdshadow shadow dynamics</p>
+        <p>Built for Pune Walkers • Day 7 • OSM + pybdshadow + Tree Canopy</p>
       </footer>
     </aside>
 
     <!-- Map Canvas -->
     <main class="map-container">
       <div id="map"></div>
-      
+
       <!-- Floating Map Legend -->
       <div class="map-legend">
         <h4>Navigation Layers</h4>
         <div class="legend-item">
           <span class="legend-line fast-line"></span>
           <span>Fastest Walking Route</span>
+        </div>
+        <div class="legend-item" id="legendBalanced" style="display:none">
+          <span class="legend-line bal-line"></span>
+          <span>Balanced (Cool + Safe)</span>
         </div>
         <div class="legend-item">
           <span class="legend-line cool-line"></span>

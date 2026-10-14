@@ -774,3 +774,135 @@ h1, h2, h3, h4, .brand, .group-label, .route-tag {
   padding-top: 6px;
   margin-top: 2px;
 }
+
+/* ==========================================================================
+   Day 7 UI Additions
+   ========================================================================== */
+
+/* Accent: Balanced / Purple route */
+:root {
+  --accent-bal: #a78bfa;
+  --accent-bal-glow: rgba(167, 139, 250, 0.25);
+}
+
+/* Routing Mode Toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.mode-btn:hover {
+  border-color: var(--accent-bal);
+  color: var(--accent-bal);
+}
+
+.mode-btn.active {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: var(--accent-bal);
+  color: var(--accent-bal);
+  box-shadow: 0 0 14px -4px var(--accent-bal-glow);
+}
+
+/* Thermal Comfort Panel */
+.thermal-panel {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.10), rgba(245, 158, 11, 0.08));
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.thermal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.thermal-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.thermal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thermal-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.thermal-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #10b981;
+  font-family: 'Outfit', sans-serif;
+}
+
+.thermal-value.heat-value {
+  color: #f59e0b;
+}
+
+/* Three-column metrics grid for Balanced card */
+.metrics-grid.three-col {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Balanced Card */
+.bal-card {
+  border-color: var(--accent-bal);
+  background: linear-gradient(145deg, rgba(167, 139, 250, 0.08), rgba(30, 41, 59, 0.5));
+  box-shadow: 0 0 20px -8px var(--accent-bal-glow);
+}
+
+.bal-tag {
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--accent-bal);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+}
+
+.bal-fill {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+}
+
+.highlight-purple {
+  color: var(--accent-bal);
+}
+
+/* Balanced legend line */
+.bal-line {
+  background: var(--accent-bal);
+  border: none;
+  opacity: 0.85;
+}
+
+/* Step advisory text */
+.step-advisory {
+  font-size: 0.70rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 3px;
+  padding-left: 4px;
+  border-left: 2px solid rgba(16, 185, 129, 0.4);
+}

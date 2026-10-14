@@ -1,19 +1,22 @@
-/**
- * Pune Cooler Routes - Interactive Map Application Logic
+﻿/**
+ * Pune Cooler Routes - Day 7 Interactive Map Application
+ * Adds: Balanced route (3rd polyline), thermal comfort display, routing mode toggle
  */
 
 // Global State
 let map;
 let landmarks = {};
-let startMarker = null;
-let destMarker = null;
-let fastestPolyline = null;
-let coolestPolyline = null;
-let boundaryPolygon = null;
+let startMarker   = null;
+let destMarker    = null;
+let fastestPolyline  = null;
+let coolestPolyline  = null;
+let balancedPolyline = null;   // Day 7: balanced route layer
+let boundaryPolygon  = null;
 let currentRouteData = null;
 
-let selectedHour = 13;
+let selectedHour    = 13;
 let selectedCoolness = 2.5;
+let selectedMode    = "balanced";   // Day 7 default: Day 6 multi-criteria engine
 
 // Pilot Bounding Box (west, south, east, north)
 const PILOT_BBOX = [73.802, 18.495, 73.846, 18.531];
@@ -25,18 +28,12 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
 });
 
-/**
- * Initialize Leaflet Map
- */
+/** Initialize Leaflet Map */
 function initMap() {
   const centerLat = (PILOT_BBOX[1] + PILOT_BBOX[3]) / 2;
   const centerLon = (PILOT_BBOX[0] + PILOT_BBOX[2]) / 2;
 
-  map = L.map("map", {
-    center: [centerLat, centerLon],
-    zoom: 14,
-    zoomControl: true
-  });
+  map = L.map("map", { center: [centerLat, centerLon], zoom: 14, zoomControl: true });
 
   // Dark Theme Tiles (CartoDB Dark Matter)
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
@@ -46,36 +43,20 @@ function initMap() {
   }).addTo(map);
 
   // Draw Pilot Bounding Box
-  const bounds = [
-    [PILOT_BBOX[1], PILOT_BBOX[0]], // South-West
-    [PILOT_BBOX[3], PILOT_BBOX[2]]  // North-East
-  ];
-
+  const bounds = [[PILOT_BBOX[1], PILOT_BBOX[0]], [PILOT_BBOX[3], PILOT_BBOX[2]]];
   boundaryPolygon = L.rectangle(bounds, {
-    color: "#f59e0b",
-    weight: 2,
-    dashArray: "6, 6",
-    fillColor: "#f59e0b",
-    fillOpacity: 0.05
+    color: "#f59e0b", weight: 2, dashArray: "6, 6",
+    fillColor: "#f59e0b", fillOpacity: 0.05
   }).addTo(map);
 
-  // Map Click Listener to drop custom pins
   map.on("click", onMapClick);
 }
 
-/**
- * Handle Map Clicks for Origin & Destination
- */
+/** Handle Map Clicks for Origin & Destination */
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
 
-  // Check if click is inside pilot box
-  if (
-    lng < PILOT_BBOX[0] ||
-    lng > PILOT_BBOX[2] ||
-    lat < PILOT_BBOX[1] ||
-    lat > PILOT_BBOX[3]
-  ) {
+  if (lng < PILOT_BBOX[0] || lng > PILOT_BBOX[2] || lat < PILOT_BBOX[1] || lat > PILOT_BBOX[3]) {
     alert("Please click within the orange pilot bounding box (Kothrud to FC Road).");
     return;
   }
@@ -88,59 +69,39 @@ function onMapClick(e) {
     document.getElementById("destSelect").value = "custom";
     calculateRoutes();
   } else {
-    // Both already exist: reset and make this the new start
     setStartMarker(lat, lng, "Custom Start");
-    if (destMarker) {
-      map.removeLayer(destMarker);
-      destMarker = null;
-    }
+    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
     clearRouteLayers();
   }
 }
 
-/**
- * Set Start Marker
- */
+/** Set Start Marker */
 function setStartMarker(lat, lng, title = "Origin") {
   if (startMarker) map.removeLayer(startMarker);
-
-  const startIcon = L.divIcon({
+  const icon = L.divIcon({
     className: "custom-marker-start",
-    html: `<div style="background-color:#10b981; width:16px; height:16px; border-radius:50%; border:3px solid #ffffff; box-shadow:0 0 10px #10b981;"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    html: `<div style="background:#10b981;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #10b981;"></div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8]
   });
-
-  startMarker = L.marker([lat, lng], { icon: startIcon, draggable: true })
-    .addTo(map)
+  startMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
     .bindPopup(`<b>Start:</b> ${title}`);
-
   startMarker.on("dragend", () => calculateRoutes());
 }
 
-/**
- * Set Destination Marker
- */
+/** Set Destination Marker */
 function setDestMarker(lat, lng, title = "Destination") {
   if (destMarker) map.removeLayer(destMarker);
-
-  const destIcon = L.divIcon({
+  const icon = L.divIcon({
     className: "custom-marker-dest",
-    html: `<div style="background-color:#ef4444; width:16px; height:16px; border-radius:50%; border:3px solid #ffffff; box-shadow:0 0 10px #ef4444;"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    html: `<div style="background:#ef4444;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #ef4444;"></div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8]
   });
-
-  destMarker = L.marker([lat, lng], { icon: destIcon, draggable: true })
-    .addTo(map)
+  destMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
     .bindPopup(`<b>Destination:</b> ${title}`);
-
   destMarker.on("dragend", () => calculateRoutes());
 }
 
-/**
- * Fetch Landmarks from Backend
- */
+/** Fetch Landmarks from Backend */
 async function loadLandmarks() {
   try {
     const res = await fetch("/api/landmarks");
@@ -148,20 +109,18 @@ async function loadLandmarks() {
     landmarks = await res.json();
 
     const startSelect = document.getElementById("startSelect");
-    const destSelect = document.getElementById("destSelect");
+    const destSelect  = document.getElementById("destSelect");
 
     startSelect.innerHTML = `<option value="custom">📍 Custom Map Pin</option>`;
-    destSelect.innerHTML = `<option value="custom">📍 Custom Map Pin</option>`;
+    destSelect.innerHTML  = `<option value="custom">📍 Custom Map Pin</option>`;
 
     for (const [key, item] of Object.entries(landmarks)) {
       startSelect.innerHTML += `<option value="${key}">${item.name}</option>`;
-      destSelect.innerHTML += `<option value="${key}">${item.name}</option>`;
+      destSelect.innerHTML  += `<option value="${key}">${item.name}</option>`;
     }
 
-    // Default: MIT-WPU to Fergusson College
     startSelect.value = "mit_wpu";
-    destSelect.value = "fergusson";
-
+    destSelect.value  = "fergusson";
     applyLandmarkSelection();
     calculateRoutes();
   } catch (err) {
@@ -169,13 +128,10 @@ async function loadLandmarks() {
   }
 }
 
-/**
- * Apply Landmark Selection from Dropdowns
- */
+/** Apply Landmark Selection from Dropdowns */
 function applyLandmarkSelection() {
   const startKey = document.getElementById("startSelect").value;
-  const destKey = document.getElementById("destSelect").value;
-
+  const destKey  = document.getElementById("destSelect").value;
   if (startKey && landmarks[startKey]) {
     const lm = landmarks[startKey];
     setStartMarker(lm.lat, lm.lon, lm.name);
@@ -186,20 +142,21 @@ function applyLandmarkSelection() {
   }
 }
 
-/**
- * Calculate Dual Routes via Backend API
- */
+/** Calculate Routes via Backend API */
 async function calculateRoutes() {
   if (!startMarker || !destMarker) return;
 
   const startLatLng = startMarker.getLatLng();
-  const destLatLng = destMarker.getLatLng();
+  const destLatLng  = destMarker.getLatLng();
 
   const btn = document.getElementById("findRoutesBtn");
   btn.innerHTML = `<span class="btn-icon">⏳</span> Computing...`;
   btn.disabled = true;
 
-  const url = `/api/route?start_lat=${startLatLng.lat}&start_lon=${startLatLng.lng}&dest_lat=${destLatLng.lat}&dest_lon=${destLatLng.lng}&hour=${selectedHour}&coolness=${selectedCoolness}`;
+  // Build URL with mode parameter
+  const url = `/api/route?start_lat=${startLatLng.lat}&start_lon=${startLatLng.lng}` +
+              `&dest_lat=${destLatLng.lat}&dest_lon=${destLatLng.lng}` +
+              `&hour=${selectedHour}&coolness=${selectedCoolness}&mode=${selectedMode}`;
 
   try {
     const res = await fetch(url);
@@ -207,158 +164,197 @@ async function calculateRoutes() {
       const errData = await res.json();
       throw new Error(errData.error || "Failed to calculate route");
     }
-
     currentRouteData = await res.json();
     renderRoutesOnMap(currentRouteData);
     renderMetrics(currentRouteData);
   } catch (err) {
     alert("Routing Error: " + err.message);
   } finally {
-    btn.innerHTML = `<span class="btn-icon">⚡</span> Calculate Dual Routes`;
+    btn.innerHTML = `<span class="btn-icon">⚡</span> Calculate Routes`;
     btn.disabled = false;
   }
 }
 
-/**
- * Render Route Polylines on Leaflet Map
- */
+/** Render Route Polylines on Leaflet Map */
 function renderRoutesOnMap(data) {
   clearRouteLayers();
 
-  const fastestCoords = data.fastest.coordinates;
-  const coolestCoords = data.coolest.coordinates;
+  const fastCoords = data.fastest ? data.fastest.coordinates : null;
+  const coolCoords = data.coolest ? data.coolest.coordinates : null;
+  const balCoords  = data.balanced ? data.balanced.coordinates : null;
 
-  // Fastest Route (Cyan Line)
-  fastestPolyline = L.polyline(fastestCoords, {
-    color: "#06b6d4",
-    weight: 5,
-    opacity: 0.85,
-    dashArray: "8, 6",
-    lineJoin: "round"
-  }).addTo(map);
+  // Fastest Route (Cyan Dashed)
+  if (fastCoords && fastCoords.length > 1) {
+    fastestPolyline = L.polyline(fastCoords, {
+      color: "#06b6d4", weight: 5, opacity: 0.85, dashArray: "8, 6", lineJoin: "round"
+    }).addTo(map);
+    fastestPolyline.bindPopup(`
+      <b>⚡ Fastest Walking Route</b><br>
+      Distance: ${data.fastest.distance_m} m<br>
+      Time: ${data.fastest.time_min} min<br>
+      Shade: ${data.fastest.shade_pct}%
+    `);
+  }
 
-  fastestPolyline.bindPopup(`
-    <b>⚡ Fastest Walking Route</b><br>
-    Distance: ${data.fastest.distance_m} m<br>
-    Time: ${data.fastest.time_min} min<br>
-    Shade: ${data.fastest.shade_pct}%
-  `);
+  // Balanced Route (Purple) - Day 7
+  if (balCoords && balCoords.length > 1) {
+    balancedPolyline = L.polyline(balCoords, {
+      color: "#a78bfa", weight: 5, opacity: 0.85, dashArray: "4, 4", lineJoin: "round"
+    }).addTo(map);
+    balancedPolyline.bindPopup(`
+      <b>🛡️ Balanced Route (Cool + Safe)</b><br>
+      Distance: ${data.balanced.distance_m} m<br>
+      Time: ${data.balanced.time_min} min<br>
+      Shade: ${data.balanced.shade_pct}%
+    `);
+    document.getElementById("legendBalanced").style.display = "flex";
+  } else {
+    document.getElementById("legendBalanced").style.display = "none";
+  }
 
-  // Coolest Route (Emerald Glow Line)
-  coolestPolyline = L.polyline(coolestCoords, {
-    color: "#10b981",
-    weight: 6,
-    opacity: 0.95,
-    lineJoin: "round"
-  }).addTo(map);
+  // Coolest Route (Emerald Glow)
+  if (coolCoords && coolCoords.length > 1) {
+    coolestPolyline = L.polyline(coolCoords, {
+      color: "#10b981", weight: 6, opacity: 0.95, lineJoin: "round"
+    }).addTo(map);
+    coolestPolyline.bindPopup(`
+      <b>🌿 Coolest Shaded Route</b><br>
+      Distance: ${data.coolest.distance_m} m<br>
+      Time: ${data.coolest.time_min} min<br>
+      Shade: ${data.coolest.shade_pct}% (Maximized Tree/Building Shade)
+    `);
+  }
 
-  coolestPolyline.bindPopup(`
-    <b>🌿 Coolest Shaded Route</b><br>
-    Distance: ${data.coolest.distance_m} m<br>
-    Time: ${data.coolest.time_min} min<br>
-    Shade: ${data.coolest.shade_pct}% (Maximized Tree/Building Shade)
-  `);
-
-  // Fit bounds to show both routes comfortably
-  const group = new L.featureGroup([fastestPolyline, coolestPolyline]);
-  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+  // Fit map to show all routes
+  const layers = [fastestPolyline, balancedPolyline, coolestPolyline].filter(Boolean);
+  if (layers.length > 0) {
+    const group = new L.featureGroup(layers);
+    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+  }
 }
 
-/**
- * Clear existing polylines
- */
+/** Clear existing polylines */
 function clearRouteLayers() {
-  if (fastestPolyline) {
-    map.removeLayer(fastestPolyline);
-    fastestPolyline = null;
-  }
-  if (coolestPolyline) {
-    map.removeLayer(coolestPolyline);
-    coolestPolyline = null;
-  }
+  [fastestPolyline, coolestPolyline, balancedPolyline].forEach(p => {
+    if (p) map.removeLayer(p);
+  });
+  fastestPolyline  = null;
+  coolestPolyline  = null;
+  balancedPolyline = null;
 }
 
-/**
- * Render Comparison Metrics in DOM
- */
+/** Render Comparison Metrics in DOM */
 function renderMetrics(data) {
-  // Tradeoff Verdict Banner
-  document.getElementById("tradeoffVerdict").innerText = data.tradeoff.verdict;
+  const isDay6 = data.fastest && data.coolest && data.balanced !== undefined;
 
-  // Fastest Card
-  document.getElementById("fastDist").innerText = `${data.fastest.distance_m} m`;
-  document.getElementById("fastTime").innerText = `${data.fastest.time_min} min`;
-  document.getElementById("fastShadePct").innerText = `${data.fastest.shade_pct}%`;
-  document.getElementById("fastShadeBar").style.width = `${Math.min(100, data.fastest.shade_pct)}%`;
+  // Fastest Card (always present)
+  if (data.fastest) {
+    document.getElementById("fastDist").innerText     = `${data.fastest.distance_m} m`;
+    document.getElementById("fastTime").innerText     = `${data.fastest.time_min} min`;
+    document.getElementById("fastShadePct").innerText = `${data.fastest.shade_pct}%`;
+    document.getElementById("fastShadeBar").style.width = `${Math.min(100, data.fastest.shade_pct)}%`;
+  }
 
   // Coolest Card
-  document.getElementById("coolDist").innerText = `${data.coolest.distance_m} m`;
-  document.getElementById("coolTime").innerText = `${data.coolest.time_min} min`;
-  document.getElementById("coolShadePct").innerText = `${data.coolest.shade_pct}%`;
-  document.getElementById("coolShadeBar").style.width = `${Math.min(100, data.coolest.shade_pct)}%`;
+  if (data.coolest) {
+    document.getElementById("coolDist").innerText     = `${data.coolest.distance_m} m`;
+    document.getElementById("coolTime").innerText     = `${data.coolest.time_min} min`;
+    document.getElementById("coolShadePct").innerText = `${data.coolest.shade_pct}%`;
+    document.getElementById("coolShadeBar").style.width = `${Math.min(100, data.coolest.shade_pct)}%`;
+  }
 
-  // Delta Chips
-  document.getElementById("deltaDist").innerText = `+${data.tradeoff.extra_distance_m} m`;
-  document.getElementById("deltaTime").innerText = `+${data.tradeoff.extra_time_min} min`;
-  document.getElementById("deltaShade").innerText = `+${data.tradeoff.shade_gain_pct}%`;
+  // Balanced Card (Day 6 multi-criteria engine)
+  const balCard = document.getElementById("balancedCard");
+  if (data.balanced) {
+    balCard.style.display = "";
+    document.getElementById("balDist").innerText     = `${data.balanced.distance_m} m`;
+    document.getElementById("balTime").innerText     = `${data.balanced.time_min} min`;
+    document.getElementById("balShadePct").innerText = `${data.balanced.shade_pct}%`;
+    document.getElementById("balShadeBar").style.width = `${Math.min(100, data.balanced.shade_pct)}%`;
+  } else {
+    balCard.style.display = "none";
+  }
 
-  // Turn-by-Turn Steps
+  // Tradeoff Verdict Banner
+  if (data.tradeoff) {
+    const verdict = data.tradeoff.verdict || "";
+    document.getElementById("tradeoffVerdict").innerText = verdict;
+    document.getElementById("deltaDist").innerText  = `+${data.tradeoff.extra_distance_m} m`;
+    document.getElementById("deltaTime").innerText  = `+${data.tradeoff.extra_time_min} min`;
+    document.getElementById("deltaShade").innerText = `+${data.tradeoff.shade_gain_pct}%`;
+  } else if (data.comparison) {
+    // Day 6 multi-criteria comparison object
+    const c = data.comparison;
+    document.getElementById("tradeoffVerdict").innerText =
+      `Coolest route gains +${c.shade_gain_vs_fast}% shade with only +${c.detour_min_cool} min detour.`;
+    document.getElementById("deltaDist").innerText  = `+${c.detour_m_cool} m`;
+    document.getElementById("deltaTime").innerText  = `+${c.detour_min_cool} min`;
+    document.getElementById("deltaShade").innerText = `+${c.shade_gain_vs_fast}%`;
+  }
+
+  // Thermal Comfort Panel (Day 7) - only shown for Day 6 engine results
+  const thermalPanel = document.getElementById("thermalPanel");
+  if (data.coolest && data.coolest.apparent_temp_relief_c !== undefined) {
+    thermalPanel.style.display = "";
+    document.getElementById("thermalRelief").innerText =
+      `-${data.coolest.apparent_temp_relief_c}°C apparent temp relief`;
+    const heatReduced = data.comparison
+      ? data.comparison.heat_reduction_w_m2
+      : (data.fastest && data.coolest
+          ? (data.fastest.heat_exposure_w_m2 - data.coolest.heat_exposure_w_m2).toFixed(1)
+          : 0);
+    document.getElementById("heatAvoided").innerText = `${heatReduced} W/m² avoided`;
+  } else {
+    thermalPanel.style.display = "none";
+  }
+
+  // Turn-by-Turn Steps for Coolest Route with advisory text (Day 7 enhancement)
   const stepsList = document.getElementById("stepsList");
   stepsList.innerHTML = "";
-
-  (data.coolest.steps || []).forEach(step => {
+  const steps = (data.coolest || data.fastest || {}).steps || [];
+  steps.forEach(step => {
     const div = document.createElement("div");
     div.className = `step-item ${step.is_shaded ? "shaded" : ""}`;
+    const advisory = step.advisory || "";
     div.innerHTML = `
       <div class="step-street">${step.is_shaded ? "🌳" : "☀️"} ${step.street}</div>
       <div class="step-meta">
         <span>${step.length_m} m</span>
         <strong>${step.shade_pct}% shade</strong>
       </div>
+      ${advisory ? `<div class="step-advisory">${advisory}</div>` : ""}
     `;
     stepsList.appendChild(div);
   });
 }
 
-/**
- * Setup Event Listeners
- */
+/** Setup Event Listeners */
 function setupEventListeners() {
   // Preset Chips
   document.querySelectorAll(".preset-chips .chip").forEach(chip => {
     chip.addEventListener("click", () => {
       document.querySelectorAll(".preset-chips .chip").forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
-
-      const fromKey = chip.getAttribute("data-from");
-      const toKey = chip.getAttribute("data-to");
-
-      document.getElementById("startSelect").value = fromKey;
-      document.getElementById("destSelect").value = toKey;
-
+      document.getElementById("startSelect").value = chip.getAttribute("data-from");
+      document.getElementById("destSelect").value  = chip.getAttribute("data-to");
       applyLandmarkSelection();
       calculateRoutes();
     });
   });
 
   // Dropdown Changes
-  document.getElementById("startSelect").addEventListener("change", () => {
-    applyLandmarkSelection();
-    calculateRoutes();
-  });
-  document.getElementById("destSelect").addEventListener("change", () => {
-    applyLandmarkSelection();
-    calculateRoutes();
+  ["startSelect", "destSelect"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => {
+      applyLandmarkSelection();
+      calculateRoutes();
+    });
   });
 
-  // Swap Locations Button
+  // Swap Locations
   document.getElementById("swapLocationsBtn").addEventListener("click", () => {
-    const startSelect = document.getElementById("startSelect");
-    const destSelect = document.getElementById("destSelect");
-    const tempVal = startSelect.value;
-    startSelect.value = destSelect.value;
-    destSelect.value = tempVal;
-
+    const s = document.getElementById("startSelect");
+    const d = document.getElementById("destSelect");
+    const tmp = s.value; s.value = d.value; d.value = tmp;
     applyLandmarkSelection();
     calculateRoutes();
   });
@@ -368,111 +364,91 @@ function setupEventListeners() {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-
       const h = btn.getAttribute("data-hour");
       if (h === "live") {
         selectedHour = new Date().getHours();
         document.getElementById("timeLabel").innerText = `${selectedHour}:00 (Live Wall Clock)`;
       } else {
         selectedHour = parseInt(h);
-        const labels = {
-          9: "09:00 (Morning Sun)",
-          13: "13:00 (Midday Sun)",
-          16: "16:00 (Afternoon Sun)"
-        };
+        const labels = { 9: "09:00 (Morning Sun)", 13: "13:00 (Midday Sun)", 16: "16:00 (Afternoon Sun)" };
         document.getElementById("timeLabel").innerText = labels[selectedHour] || `${selectedHour}:00`;
       }
       calculateRoutes();
     });
   });
 
+  // Routing Mode Toggle (Day 7)
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      selectedMode = btn.getAttribute("data-mode");
+      calculateRoutes();
+    });
+  });
+
   // Coolness Slider
-  const coolnessSlider = document.getElementById("coolnessSlider");
-  coolnessSlider.addEventListener("input", e => {
+  const slider = document.getElementById("coolnessSlider");
+  slider.addEventListener("input", e => {
     selectedCoolness = parseFloat(e.target.value);
     document.getElementById("coolnessVal").innerText = `${selectedCoolness}x`;
   });
-  coolnessSlider.addEventListener("change", () => {
-    calculateRoutes();
-  });
+  slider.addEventListener("change", () => calculateRoutes());
 
   // Calculate Button
-  document.getElementById("findRoutesBtn").addEventListener("click", () => {
-    calculateRoutes();
-  });
+  document.getElementById("findRoutesBtn").addEventListener("click", () => calculateRoutes());
 
   // Toggle Steps Accordion
   document.getElementById("toggleStepsBtn").addEventListener("click", () => {
-    const list = document.getElementById("stepsList");
+    const list  = document.getElementById("stepsList");
     const arrow = document.querySelector(".accordion-arrow");
-    if (list.style.display === "none") {
-      list.style.display = "flex";
-      arrow.innerText = "▼";
-    } else {
-      list.style.display = "none";
-      arrow.innerText = "▶";
-    }
+    const isHidden = list.style.display === "none";
+    list.style.display  = isHidden ? "flex" : "none";
+    arrow.innerText     = isHidden ? "▼" : "▶";
   });
 
-  // Export GeoJSON Button
+  // Export GeoJSON
   document.getElementById("exportGeoJsonBtn").addEventListener("click", () => {
-    if (!currentRouteData) {
-      alert("Please calculate routes first.");
-      return;
-    }
+    if (!currentRouteData) { alert("Please calculate routes first."); return; }
 
-    const geojson = {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          properties: {
-            route_type: "Fastest",
-            distance_m: currentRouteData.fastest.distance_m,
-            time_min: currentRouteData.fastest.time_min,
-            shade_pct: currentRouteData.fastest.shade_pct
-          },
-          geometry: {
-            type: "LineString",
-            coordinates: currentRouteData.fastest.geojson_coords
-          }
+    const features = [];
+    const routes = [
+      { key: "fastest",  label: "Fastest",  color: "#06b6d4" },
+      { key: "balanced", label: "Balanced (Cool+Safe)", color: "#a78bfa" },
+      { key: "coolest",  label: "Coolest",  color: "#10b981" },
+    ];
+    routes.forEach(r => {
+      const rd = currentRouteData[r.key];
+      if (!rd) return;
+      features.push({
+        type: "Feature",
+        properties: {
+          route_type: r.label, color: r.color,
+          distance_m: rd.distance_m, time_min: rd.time_min, shade_pct: rd.shade_pct
         },
-        {
-          type: "Feature",
-          properties: {
-            route_type: "Coolest",
-            distance_m: currentRouteData.coolest.distance_m,
-            time_min: currentRouteData.coolest.time_min,
-            shade_pct: currentRouteData.coolest.shade_pct
-          },
-          geometry: {
-            type: "LineString",
-            coordinates: currentRouteData.coolest.geojson_coords
-          }
-        }
-      ]
-    };
+        geometry: { type: "LineString", coordinates: rd.geojson_coords || [] }
+      });
+    });
 
-    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pune_cooler_routes_${selectedHour}00.geojson`;
+    const geojson = { type: "FeatureCollection", features };
+    const blob    = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
+    const url     = URL.createObjectURL(blob);
+    const a       = document.createElement("a");
+    a.href        = url;
+    a.download    = `pune_cooler_routes_day7_${selectedHour}00.geojson`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
 
-  // Reset Pins Button
+  // Reset Pins
   document.getElementById("resetPinsBtn").addEventListener("click", () => {
-    if (startMarker) map.removeLayer(startMarker);
-    if (destMarker) map.removeLayer(destMarker);
-    startMarker = null;
-    destMarker = null;
+    [startMarker, destMarker].forEach(m => { if (m) map.removeLayer(m); });
+    startMarker = null; destMarker = null;
     clearRouteLayers();
     document.getElementById("startSelect").value = "custom";
-    document.getElementById("destSelect").value = "custom";
+    document.getElementById("destSelect").value  = "custom";
     alert("Pins cleared! Click anywhere in the orange pilot box to set a new Start pin.");
   });
 }

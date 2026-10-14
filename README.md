@@ -1,139 +1,172 @@
-# 🌿 Pune Cooler Routes — Shade-Aware Pedestrian Navigation System
+﻿# Pune Cooler Routes 🌿
 
-A comprehensive, physics-informed walking navigation application for **Pune, Maharashtra, India**. The system dynamically routes pedestrians along tree canopies and building shadows to minimize extreme urban heat exposure while balancing walking time and sidewalk safety.
+**A shade-aware pedestrian navigation system for Pune, India.**
 
----
-
-## 🗺️ Pilot Corridor
-* **City**: Pune, Maharashtra, India
-* **Bounding Box (WGS84)**: `west 73.802, south 18.495, east 73.846, north 18.531` (~4.6 km × 4.0 km)
-* **Neighborhoods**: Kothrud, Karve Road, Deccan Gymkhana, Fergusson College Road, Prabhat Road, BMCC, Law College Road.
-* **Walking Network**: 3,971 intersection nodes, 10,414 edges (638.4 km total network length).
+Walk cooler, smarter, and safer through Kothrud, Karve Road, Deccan Gymkhana, and FC Road by choosing routes that maximize tree and building shade — validated by a 7-day intensive research sprint.
 
 ---
 
-## 🚀 6-Day Development Journey & Architecture
+## Quick Start
 
-```
-                 [OpenStreetMap Topologies]
-                             │
-            ┌────────────────┴────────────────┐
-            ▼                                 ▼
-   [Pedestrian Network]             [Buildings & Tree Canopies]
-   (OSMnx 2.1.1, 10k edges)         (Polygons + Canopies, 6-10m)
-            │                                 │
-            │                        [Solar Simulation]
-            │                        (pybdshadow Sun Path)
-            │                                 │
-            └───────────────┬─────────────────┘
-                            ▼
-                [Dynamic Shaded Graph]
-            (09:00 Morning, 13:00 Midday, 16:00 Afternoon)
-                            │
-            ┌───────────────┴────────────────┐
-            ▼                                ▼
-  [Fastest Route Engine]           [Multi-Criteria Thermal Engine]
-  (Dijkstra on physical length)    (Shade + Sidewalk Quality + Safety)
-            │                                │
-            └───────────────┬────────────────┘
-                            ▼
-          [Interactive Web App & Visualizer]
-     (Leaflet.js • Dark Matter • Rest API • HUD Metrics)
-```
-
-### Day-by-Day Progression
-* **Day 1 — Network Base & Sidewalk Audit**: Downloaded pilot walking network using OSMnx, snapped test route (MIT-WPU to Fergusson College: 4,339m), and conducted sidewalk tagging audit across 10,414 edges.
-* **Day 2 — Building Footprints & Heights**: Extracted building geometries with level/height parsing and 6.0m fallbacks (`buildings.gpkg`).
-* **Day 3 — Solar Shadow Modeling**: Simulated solar azimuth and elevation (`pybdshadow`) for 09:00, 13:00, and 16:00, integrating tree canopies and covered arcades.
-* **Day 4 — Dual-Route Routing Engine**: Implemented dual-path Dijkstra engine comparing raw length against shade-inflated `cool_weight`.
-* **Day 5 — Interactive Web App & REST API**: Built fullstack Leaflet web app (`web/`), local server (`scripts/day5_server.py`), landmark presets, live sun angle toggles, and offline standalone map (`outputs/day5_map.html`).
-* **Day 6 — Multi-Criteria Thermal Routing & Benchmark Suite**: Integrated sidewalk quality penalties, modeled continuous solar radiation exposure (W/m²), dynamic time-marching walk progress, and executed a 25-route benchmark suite (`outputs/day6_benchmark.png`).
-
----
-
-## 📊 Day 6 Benchmark Results (25 Pune Pilot Routes)
-
-Evaluated across 25 origin-destination pairs at peak mid-summer sun angle (13:00):
-
-| Metric | Fastest Route | Coolest Route | Delta / Improvement |
-|---|---|---|---|
-| **Average Shade Exposure** | 30.2% | **34.4%** | **+4.2%** shade gain (up to **+25.3%** on shaded avenues) |
-| **Average Walking Distance** | 2,382.8 m | 2,427.4 m | **+44.6 m** (only +1.8% detour!) |
-| **Average Walking Duration** | 29.8 min | 30.3 min | **+0.6 min** extra walking |
-| **Absorbed Solar Irradiance** | 728.0 W/m² | **693.2 W/m²** | **-34.8 W/m²** solar radiation avoided |
-| **Apparent Radiant Relief** | Baseline | Substantial cooling | **-3.2°C** cooler thermal sensation |
-
-> **Key Finding**: Pune pedestrians can gain significant heat relief and shade coverage with an average walking detour of **less than 45 metres (+36 seconds)**.
-
----
-
-## 💻 How to Run
-
-### 1. Launch the Interactive Web Application
 ```bash
-# Start the local server (port 8050)
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch the interactive web app
 python scripts/day5_server.py 8050
-
-# Open in your browser:
-# http://127.0.0.1:8050
-```
-* **Features in the UI**:
-  * Drop custom pins anywhere on the map or select from 9 Pune landmark presets.
-  * Adjust sun position: Morning (09:00), Midday (13:00), Afternoon (16:00), or Live Computer Clock.
-  * Fine-tune the Coolness Priority Slider (1.0x to 5.0x shade penalty).
-  * View side-by-side metric cards (Distance, Duration, Shade %, Delta Advantage).
-  * Step-by-step turn guidance with shade indicators.
-  * Export calculated route GeoJSON for GPS/mobile use.
-
-### 2. Run the Benchmark Suite & Generate Visuals
-```bash
-python scripts/day6_benchmark.py
-# Outputs: outputs/day6_benchmark.png, outputs/day6_benchmark_25routes.csv, outputs/day6_report.md
-```
-
-### 3. Generate Standalone Offline Map
-```bash
-python scripts/day5_offline_map.py
-# Outputs: outputs/day5_map.html
+# Open http://127.0.0.1:8050 in your browser
 ```
 
 ---
 
-## 📁 Repository Structure
+## 7-Day Sprint Summary
+
+| Day | Focus Area | Key Output |
+|---|---|---|
+| 1 | Network download + sidewalk audit | `network.graphml`, `sidewalk_audit.png` |
+| 2 | Building heights from OSM | `buildings_with_heights.gpkg` |
+| 3 | Shadow simulation (pybdshadow) | `edges_shaded.gpkg` (3 time slots) |
+| 4 | Dual routing engine | `routes_day4.geojson`, `day4_report.md` |
+| 5 | Full-stack web app + REST API | `day5_map.html`, `routes_day5.geojson` |
+| 6 | Multi-criteria thermal routing + benchmark | `day6_benchmark.png`, `day6_benchmark_25routes.csv` |
+| 7 | Network analytics + tree canopy integration | `day7_analytics.png`, `day7_shade_tiers.csv`, `day7_canopy_map.png` |
+
+---
+
+## Project Architecture
+
 ```
 pune-cooler-routes/
-├── data/
-│   └── processed/
-│       ├── network.graphml        # 3,971-node walking graph
-│       ├── edges_shaded.gpkg       # 10,414 edges with 09:00/13:00/16:00 shade fracs
-│       └── buildings.gpkg          # Building geometries
 ├── scripts/
-│   ├── config.py                  # Coordinate bounding boxes & constants
-│   ├── day4_router.py             # Base dual-route engine
-│   ├── day5_engine.py             # Arbitrary-coordinate routing engine
-│   ├── day5_server.py             # REST API & static asset server
-│   ├── day5_offline_map.py        # Standalone Folium map generator
-│   ├── day5_test.py               # Day 5 automated test suite
-│   ├── day6_router.py             # Multi-criteria thermal comfort engine
-│   ├── day6_benchmark.py          # 25-route benchmark & plot generator
-│   └── enrich_network_shade.py    # Canopy & building shade enrichment
+│   ├── config.py                 # Shared paths and constants
+│   ├── download_network.py       # Day 1: OSMnx walking network
+│   ├── sidewalk_audit.py         # Day 1: Sidewalk quality audit
+│   ├── download_buildings_osm.py # Day 2: Building footprints + heights
+│   ├── process_buildings.py      # Day 2: Height enrichment
+│   ├── day3_shadows.py           # Day 3: pybdshadow solar shadow simulation
+│   ├── enrich_network_shade.py   # Day 3: Shade fraction assignment to edges
+│   ├── day4_router.py            # Day 4: Dual routing (Fastest + Coolest)
+│   ├── day5_engine.py            # Day 5: Extended routing engine
+│   ├── day5_server.py            # Day 5-7: HTTP REST server + web serving
+│   ├── day5_offline_map.py       # Day 5: Standalone Folium map
+│   ├── day5_test.py              # Day 5: Automated API test suite
+│   ├── day6_router.py            # Day 6: Multi-criteria thermal comfort routing
+│   ├── day6_benchmark.py         # Day 6: 25-route benchmark suite
+│   ├── day7_analytics.py         # Day 7: Network-wide shade analytics
+│   └── day7_ndvi_trees.py        # Day 7: OSM tree canopy integration
 ├── web/
-│   ├── index.html                 # Responsive web layout
-│   ├── style.css                  # Midnight glassmorphic design system
-│   └── app.js                     # Leaflet routing & UI controller
-└── outputs/
-    ├── day6_benchmark.png         # Multi-panel benchmark visualization figure
-    ├── day6_benchmark_25routes.csv# Full 25-route tabular metrics
-    ├── day6_report.md             # Comprehensive final report
-    ├── day5_report.md             # Day 5 verification report
-    ├── day5_map.html              # Standalone interactive browser map
-    └── routes_day5.geojson        # Dual-route GeoJSON export
+│   ├── index.html                # Day 7 upgraded UI (3-route, thermal, mode toggle)
+│   ├── style.css                 # Dark glassmorphism theme
+│   └── app.js                   # Interactive Leaflet map logic
+├── data/
+│   ├── processed/
+│   │   ├── network.graphml       # Walking graph (3,971 nodes, 10,414 edges)
+│   │   ├── edges_shaded.gpkg     # Shade fracs + tree_shade_bonus per edge
+│   │   └── buildings_with_heights.gpkg
+│   └── raw/
+├── outputs/
+│   ├── day1_report.md
+│   ├── day2_report.md
+│   ├── day3_report.md
+│   ├── day4_report.md
+│   ├── day5_report.md
+│   ├── day5_map.html             # Standalone interactive map
+│   ├── day6_report.md
+│   ├── day6_benchmark.png
+│   ├── day6_benchmark_25routes.csv
+│   ├── day7_report.md            # Final comprehensive report
+│   ├── day7_analytics.png        # 4-panel network shade analytics
+│   ├── day7_shade_tiers.csv      # Per-edge shade tier classification
+│   └── day7_canopy_map.png       # Road network coloured by tree canopy
+└── requirements.txt
 ```
 
 ---
 
-## 🎓 Academic & Open-Source Credits
-* **City Topologies**: [OpenStreetMap](https://www.openstreetmap.org/) contributors
-* **Network Analysis**: [OSMnx](https://osmnx.readthedocs.io/) (Boeing, 2017)
-* **Shadow Simulation**: [pybdshadow](https://pybdshadow.readthedocs.io/)
-* **Cartography**: [Leaflet.js](https://leafletjs.com/) with CartoDB Dark Matter tiles
+## Key Results
+
+### Routing Benchmark (Day 6 — 25 Origin-Destination Pairs)
+
+| Metric | Fastest Route | Coolest Route | Delta |
+|---|---|---|---|
+| Avg Shade | 30.2% | 34.4% | **+4.2%** |
+| Avg Distance | 2,382.8 m | 2,427.4 m | +44.6 m |
+| Avg Duration | 29.8 min | 30.3 min | +0.6 min |
+| Solar Irradiance | 728.0 W/m² | 693.2 W/m² | **−34.8 W/m²** |
+| Apparent Temp Relief | — | — | **−3.2°C** |
+
+> Walk **+44.6 metres more** to gain **4.2% more shade** and feel **3.2°C cooler**!
+
+### Network Shade Analytics (Day 7 — All 10,414 Edges)
+
+| Shade Tier | Edges | Percentage |
+|---|---|---|
+| Deep Canopy (≥60%) | 100 | 1.0% |
+| Moderate Shade (35–60%) | 332 | 3.2% |
+| Partial Shade (15–35%) | 7,872 | 75.6% |
+| Full Sun (<15%) | 2,110 | 20.3% |
+
+### Top Shadiest Walking Corridors (Midday)
+1. **Senapati Bapat Marg** — 56.1% shade (4,992 m corridor)
+2. **Bhandarkar Path** — 56.1% shade (2,446 m)
+3. **Admiral Somnath Path** — 56.2% shade (2,531 m)
+4. **Vishnushastri Chiplunkar Path** — 57.4% shade (3,940 m)
+5. **Sambhaji Bridge** — 57.4% shade (1,035 m)
+
+---
+
+## Run Individual Scripts
+
+```bash
+# Day 7 scripts
+python scripts/day7_analytics.py      # Generate network analytics figure + CSV
+python scripts/day7_ndvi_trees.py     # Download OSM tree canopy + update edges
+
+# Day 6 scripts
+python scripts/day6_benchmark.py      # Run 25-route benchmark
+python scripts/day6_router.py         # Test multi-criteria routing
+
+# Launch web server
+python scripts/day5_server.py 8050    # Serve full web app at :8050
+```
+
+---
+
+## Pilot Area
+
+| Parameter | Value |
+|---|---|
+| City | Pune, Maharashtra, India |
+| Pilot Bbox | 73.802°E – 73.846°E, 18.495°N – 18.531°N |
+| Focus Roads | Karve Road, Senapati Bapat Marg, FC Road, Law College Road |
+| Nodes | 3,971 |
+| Edges | 10,414 |
+| Shadow Simulation | pybdshadow (09:00, 13:00, 16:00, May 15, 2024) |
+
+---
+
+## Tech Stack
+
+- **Python 3.11+** — Core language
+- **OSMnx 2.x** — OpenStreetMap network download + routing
+- **NetworkX** — Dijkstra shortest-path algorithm
+- **GeoPandas + Shapely** — Geospatial data processing
+- **pybdshadow** — Building shadow casting simulation
+- **Matplotlib** — Analytics figures
+- **Leaflet.js** — Interactive map frontend
+- **Vanilla CSS** — Dark glassmorphism theme (no frameworks)
+- **Python http.server** — Lightweight REST API + static file server
+
+---
+
+## Roadmap (v2.0)
+
+1. Digital Elevation Model (DEM) for hill-aware shadow calculation
+2. Land Surface Temperature (LST) satellite data for albedo corrections
+3. Per-footpath shading on wide roads (not just centerline)
+4. Covered walkway / awning detection from street-level imagery
+5. Air quality and traffic weighting
+
+---
+
+*Built during a 7-day research sprint | Data: OpenStreetMap contributors*
