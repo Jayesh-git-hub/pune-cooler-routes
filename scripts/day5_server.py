@@ -62,7 +62,7 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 "landmarks_count": len(PUNE_LANDMARKS),
                 "nodes": len(router_v5.G.nodes) if router_v5 else 0,
                 "edges": len(router_v5.G.edges) if router_v5 else 0,
-                "day_version": "Day 7 Production"
+                "day_version": "Day 9 Production (Heatmap + Isochrone + Waypoints)"
             })
         elif path == '/api/route':
             self._handle_route_query(query)
@@ -74,6 +74,40 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 self._send_json(df.to_dict(orient='records'))
             else:
                 self._send_json({"error": "Benchmark data not yet generated"}, status=404)
+        elif path == '/api/shade_score':
+            self._handle_shade_score(query)
+        elif path == '/api/neighbourhood_scores':
+            csv_path = os.path.join(OUTPUTS_DIR, "day8_neighbourhood_scores.csv")
+            if os.path.exists(csv_path):
+                import pandas as pd
+                df = pd.read_csv(csv_path)
+                self._send_json(df.to_dict(orient="records"))
+            else:
+                self._send_json({"error": "Day 8 data not generated yet"}, status=404)
+        elif path == '/api/waypoint_recommendations':
+            csv_path = os.path.join(OUTPUTS_DIR, "day9_waypoint_recommendations.csv")
+            if os.path.exists(csv_path):
+                import pandas as pd
+                df = pd.read_csv(csv_path)
+                self._send_json(df.to_dict(orient="records"))
+            else:
+                self._send_json({"error": "Day 9 data not generated yet"}, status=404)
+        elif path == '/outputs/day9_full_report.html':
+            self._serve_file(os.path.join(OUTPUTS_DIR, "day9_full_report.html"), "text/html")
+        elif path.startswith('/outputs/') and path.endswith('.geojson'):
+            fname = os.path.basename(path)
+            fpath = os.path.join(OUTPUTS_DIR, fname)
+            if os.path.exists(fpath):
+                self._serve_file(fpath, 'application/geo+json')
+            else:
+                self.send_error(404, f"GeoJSON {fname} not found")
+        elif path.startswith('/outputs/') and path.endswith('.png'):
+            fname = os.path.basename(path)
+            fpath = os.path.join(OUTPUTS_DIR, fname)
+            if os.path.exists(fpath):
+                self._serve_file(fpath, 'image/png')
+            else:
+                self.send_error(404, f"PNG {fname} not found")
         else:
             self.send_error(404, "File not found")
 
@@ -142,6 +176,39 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
 
         except Exception as e:
             self._send_json({"error": f"Routing computation failed: {str(e)}"}, status=500)
+
+    def _handle_shade_score(self, query):
+        """Return shade score for a clicked lat/lon by finding nearest edge."""
+        try:
+            lat = float(query.get('lat', [0])[0])
+            lon = float(query.get('lon', [0])[0])
+            if not (lat and lon):
+                self._send_json({"error": "lat/lon required"}, status=400)
+                return
+            # Find nearest node and lookup shade
+            import osmnx as ox
+            G = router_v5.G
+            node = ox.distance.nearest_nodes(G, X=lon, Y=lat)
+            # Get average shade of edges touching this node
+            neighbors = list(G.neighbors(node))
+            shades = []
+            for n in neighbors:
+                lookup = router_v5.shade_lookup.get((node, n, 0),
+                         router_v5.shade_lookup.get((n, node, 0), {}))
+                if lookup:
+                    shades.append(lookup.get('1300', 0.25))
+            avg = round(sum(shades) / max(1, len(shades)), 4) if shades else 0.25
+            self._send_json({
+                "lat": lat, "lon": lon,
+                "nearest_node": node,
+                "shade_1300": round(avg, 4),
+                "shade_pct": round(avg * 100, 1),
+                "tier": "Deep Canopy" if avg >= 0.60 else
+                        "Moderate Shade" if avg >= 0.35 else
+                        "Partial Shade" if avg >= 0.15 else "Full Sun"
+            })
+        except Exception as e:
+            self._send_json({"error": str(e)}, status=500)
 
 def run_server(port=8050):
     global router_v5, router_v6

@@ -452,3 +452,280 @@ function setupEventListeners() {
     alert("Pins cleared! Click anywhere in the orange pilot box to set a new Start pin.");
   });
 }
+
+
+// ============================================================
+// Day 8 & 9: Heatmap, Isochrone, Route History, Share URL
+// ============================================================
+
+// Layer state
+let heatmapLayer   = null;
+let heatmapActive  = false;
+let isochroneLayerStd = null;
+let isochroneLayerShd = null;
+let isochroneActive  = false;
+
+// Route history (stored in memory, max 5)
+let routeHistory = [];
+
+/** ---- Heatmap Overlay (Day 8) ---- */
+function toggleHeatmap() {
+  const sw = document.getElementById("heatmapToggle");
+  if (heatmapActive) {
+    if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
+    sw.classList.remove("on");
+    heatmapActive = false;
+  } else {
+    loadHeatmapLayer();
+  }
+}
+
+function loadHeatmapLayer() {
+  const sw = document.getElementById("heatmapToggle");
+  sw.style.opacity = "0.5";
+
+  fetch("/outputs/day8_heatmap.geojson")
+    .then(r => r.json())
+    .then(data => {
+      const slot = selectedHour < 11 ? "shade_0900" : selectedHour < 15 ? "shade_1300" : "shade_1600";
+      heatmapLayer = L.geoJSON(data, {
+        style: feature => {
+          const shade = feature.properties[slot] || feature.properties.composite || 0;
+          const color = shadeToColor(shade);
+          return { color, weight: 2.5, opacity: 0.75 };
+        },
+        onEachFeature: (feature, layer) => {
+          const p = feature.properties;
+          layer.bindTooltip(
+            `<b>${p.name}</b><br>
+             09:00: ${(p.shade_0900 * 100).toFixed(1)}% shade<br>
+             13:00: ${(p.shade_1300 * 100).toFixed(1)}% shade<br>
+             16:00: ${(p.shade_1600 * 100).toFixed(1)}% shade<br>
+             🌿 Tree Bonus: ${(p.tree_bonus * 100).toFixed(1)}%<br>
+             Composite: ${(p.composite * 100).toFixed(1)}%`,
+            { sticky: true, className: "heatmap-tooltip" }
+          );
+        }
+      }).addTo(map);
+      sw.classList.add("on");
+      sw.style.opacity = "1";
+      heatmapActive = true;
+    })
+    .catch(err => {
+      console.warn("Heatmap GeoJSON not yet available:", err);
+      sw.style.opacity = "1";
+      alert("Heatmap not yet generated. Run scripts/day8_shade_heatmap.py first.");
+    });
+}
+
+function shadeToColor(shade) {
+  // 0 = full sun (red), 0.5 = partial (amber), 1 = full shade (green)
+  if (shade >= 0.55) return "#10b981";   // deep green
+  if (shade >= 0.40) return "#34d399";   // light green
+  if (shade >= 0.30) return "#fbbf24";   // amber
+  if (shade >= 0.18) return "#f97316";   // orange
+  return "#ef4444";                       // red
+}
+
+/** ---- Isochrone Overlay (Day 8) ---- */
+function toggleIsochrone() {
+  const sw = document.getElementById("isochroneToggle");
+  if (isochroneActive) {
+    if (isochroneLayerStd) { map.removeLayer(isochroneLayerStd); isochroneLayerStd = null; }
+    if (isochroneLayerShd) { map.removeLayer(isochroneLayerShd); isochroneLayerShd = null; }
+    sw.classList.remove("on");
+    isochroneActive = false;
+  } else {
+    loadIsochroneLayers();
+  }
+}
+
+function loadIsochroneLayers() {
+  const sw = document.getElementById("isochroneToggle");
+  sw.style.opacity = "0.5";
+  const bandColors = ["#10b981", "#f59e0b", "#ef4444"];
+  const bandAlphas = [0.12, 0.09, 0.06];
+
+  Promise.all([
+    fetch("/outputs/day8_isochrone_shaded.geojson").then(r => r.json()),
+  ]).then(([shadedData]) => {
+    isochroneLayerShd = L.geoJSON(shadedData, {
+      style: feature => {
+        const idx = [5, 10, 15].indexOf(feature.properties.time_band_min);
+        return {
+          color: bandColors[idx] || "#fff",
+          weight: 2.0,
+          opacity: 0.7,
+          fillColor: bandColors[idx] || "#fff",
+          fillOpacity: bandAlphas[idx] || 0.08,
+          dashArray: "6, 4"
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        layer.bindTooltip(
+          `<b>Shade-Priority Isochrone</b><br>${feature.properties.time_band_min}-minute walking zone`,
+          { sticky: false }
+        );
+      }
+    }).addTo(map);
+    sw.classList.add("on");
+    sw.style.opacity = "1";
+    isochroneActive = true;
+  }).catch(err => {
+    console.warn("Isochrone GeoJSON not available:", err);
+    sw.style.opacity = "1";
+    alert("Isochrone data not yet generated. Run scripts/day8_isochrone.py first.");
+  });
+}
+
+/** ---- Route History (Day 9) ---- */
+function addToHistory(data) {
+  const fastest = data.fastest || {};
+  const coolest = data.coolest || {};
+  const startName = document.getElementById("startSelect").options[document.getElementById("startSelect").selectedIndex]?.text || "Custom";
+  const destName  = document.getElementById("destSelect").options[document.getElementById("destSelect").selectedIndex]?.text  || "Custom";
+
+  const entry = {
+    from: startName,
+    to:   destName,
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    hour: selectedHour,
+    fastest_shade: fastest.shade_pct || 0,
+    coolest_shade: coolest.shade_pct || 0,
+    coolest_dist:  coolest.distance_m || 0,
+    data: data   // store full data for replay
+  };
+  routeHistory.unshift(entry);
+  if (routeHistory.length > 5) routeHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById("historyList");
+  if (!list) return;
+  if (routeHistory.length === 0) {
+    list.innerHTML = '<div class="history-empty">No routes calculated yet.</div>';
+    return;
+  }
+  list.innerHTML = routeHistory.map((e, i) => `
+    <div class="history-item" onclick="replayHistory(${i})">
+      <div class="h-route">${e.from} → ${e.to}</div>
+      <div class="h-meta">
+        🕐 ${e.time} &nbsp;|&nbsp; ⏰ ${e.hour}:00
+        &nbsp;|&nbsp; 🌿 <span class="h-shade">${e.coolest_shade}%</span> shade
+        &nbsp;|&nbsp; ${e.coolest_dist}m
+      </div>
+    </div>
+  `).join("");
+}
+
+function replayHistory(idx) {
+  const entry = routeHistory[idx];
+  if (!entry || !entry.data) return;
+  currentRouteData = entry.data;
+  drawRoutePolylines(entry.data);
+  renderMetrics(entry.data);
+}
+
+/** ---- Share Route URL (Day 9) ---- */
+function shareRouteURL() {
+  if (!startMarker || !destMarker) {
+    alert("Calculate a route first, then share.");
+    return;
+  }
+  const s = startMarker.getLatLng();
+  const d = destMarker.getLatLng();
+  const hash = `#r/${s.lat.toFixed(5)},${s.lng.toFixed(5)}/${d.lat.toFixed(5)},${d.lng.toFixed(5)}/${selectedHour}/${selectedMode}`;
+  const url  = window.location.origin + window.location.pathname + hash;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById("shareRouteBtn");
+      const old = btn.innerHTML;
+      btn.innerHTML = "✅ URL Copied!";
+      btn.style.color = "#10b981";
+      setTimeout(() => { btn.innerHTML = old; btn.style.color = ""; }, 2500);
+    });
+  } else {
+    prompt("Copy this route URL:", url);
+  }
+}
+
+/** Restore route from URL hash on load */
+function restoreFromHash() {
+  const hash = window.location.hash;
+  const match = hash.match(/^#r\/([-\d.]+),([-\d.]+)\/([-\d.]+),([-\d.]+)\/(\d+)\/(\w+)/);
+  if (!match) return;
+  const [, sLat, sLon, dLat, dLon, hour, mode] = match;
+  // Restore hour
+  selectedHour = parseInt(hour);
+  document.querySelectorAll(".time-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.hour == hour);
+  });
+  // Restore mode
+  selectedMode = mode;
+  document.querySelectorAll(".mode-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+  });
+  // Place markers and calculate
+  setStartMarker(parseFloat(sLat), parseFloat(sLon), "Shared Start");
+  setDestMarker(parseFloat(dLat), parseFloat(dLon), "Shared Destination");
+  setTimeout(() => calculateRoutes(), 500);
+}
+
+/** ---- Load Waypoint Recommendations (Day 9) ---- */
+async function loadWaypointRecommendations() {
+  try {
+    const res = await fetch("/api/waypoint_recommendations");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || data.length === 0) return;
+
+    const panel = document.getElementById("waypointPanel");
+    const list  = document.getElementById("waypointList");
+    if (!panel || !list) return;
+
+    const top3 = data.slice(0, 3);
+    list.innerHTML = top3.map(wp => `
+      <div class="waypoint-item">
+        📍 <b>${wp.waypoint}</b><br>
+        <span class="wp-gain">+${wp.shade_gain_pct}% shade</span>
+        <span class="wp-cost"> · +${wp.detour_m}m · +${wp.detour_min}min</span>
+      </div>
+    `).join("");
+    panel.classList.add("visible");
+  } catch (e) {
+    console.warn("Waypoints not available:", e);
+  }
+}
+
+// ---- Hook into existing calculateRoutes to add history + share ----
+const _origCalculateRoutes = calculateRoutes;
+calculateRoutes = async function() {
+  await _origCalculateRoutes.apply(this, arguments);
+  // After successful calculation, add to history
+  if (currentRouteData) {
+    addToHistory(currentRouteData);
+    updateShareButton();
+  }
+};
+
+function updateShareButton() {
+  const btn = document.getElementById("shareRouteBtn");
+  if (btn) {
+    btn.addEventListener("click", shareRouteURL);
+  }
+}
+
+// ---- Init on DOMContentLoaded extensions ----
+document.addEventListener("DOMContentLoaded", () => {
+  restoreFromHash();
+  loadWaypointRecommendations();
+  renderHistory();
+
+  // Wire up share button
+  const shareBtn = document.getElementById("shareRouteBtn");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", shareRouteURL);
+  }
+});

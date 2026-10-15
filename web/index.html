@@ -105,6 +105,19 @@
           </div>
         </div>
 
+
+        <!-- Day 8: Map Layers Toggle -->
+        <div class="control-group layer-toggle-section">
+          <label class="group-label">Map Overlay Layers</label>
+          <div class="layer-toggle-row" id="toggleHeatmapRow" onclick="toggleHeatmap()">
+            <span class="layer-toggle-label"><span class="lyr-icon">🌡️</span> Shade Heatmap Overlay</span>
+            <div class="toggle-switch" id="heatmapToggle"></div>
+          </div>
+          <div class="layer-toggle-row" id="toggleIsochroneRow" onclick="toggleIsochrone()">
+            <span class="layer-toggle-label"><span class="lyr-icon">⏱️</span> 5/10/15-min Isochrones</span>
+            <div class="toggle-switch" id="isochroneToggle"></div>
+          </div>
+        </div>
         <!-- Action Button -->
         <button id="findRoutesBtn" class="primary-btn">
           <span class="btn-icon">⚡</span> Calculate Routes
@@ -228,10 +241,27 @@
           <div class="steps-list" id="stepsList"></div>
         </div>
 
+
+        <!-- Day 9: Route History -->
+        <div class="history-section">
+          <label class="group-label">Route History (Last 5)</label>
+          <div class="history-list" id="historyList">
+            <div class="history-empty">No routes calculated yet.</div>
+          </div>
+        </div>
+
+        <!-- Day 9: Waypoint Recommendations -->
+        <div class="waypoint-panel" id="waypointPanel">
+          <h4>💡 Smart Waypoint Suggestions</h4>
+          <div id="waypointList"></div>
+        </div>
         <!-- Export & Share Action -->
         <div class="export-actions">
           <button class="action-btn" id="exportGeoJsonBtn">📥 Download GeoJSON</button>
           <button class="action-btn" id="resetPinsBtn">📍 Reset Pins</button>
+          <a class="report-btn" href="/outputs/day9_full_report.html" target="_blank">📊 Full 9-Day Report</a>
+          <button class="share-btn" id="shareRouteBtn">🔗 Share Route URL</button>
+
         </div>
       </section>
 

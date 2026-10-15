@@ -2,7 +2,7 @@
 
 **A shade-aware pedestrian navigation system for Pune, India.**
 
-Walk cooler, smarter, and safer through Kothrud, Karve Road, Deccan Gymkhana, and FC Road by choosing routes that maximize tree and building shade — validated by a 7-day intensive research sprint.
+Walk cooler, smarter, and safer through Kothrud, Karve Road, Deccan Gymkhana, and FC Road by choosing routes that maximize tree and building shade — validated across an intensive 9-day research and development sprint.
 
 ---
 
@@ -19,7 +19,7 @@ python scripts/day5_server.py 8050
 
 ---
 
-## 7-Day Sprint Summary
+## 9-Day Sprint Summary
 
 | Day | Focus Area | Key Output |
 |---|---|---|
@@ -30,6 +30,8 @@ python scripts/day5_server.py 8050
 | 5 | Full-stack web app + REST API | `day5_map.html`, `routes_day5.geojson` |
 | 6 | Multi-criteria thermal routing + benchmark | `day6_benchmark.png`, `day6_benchmark_25routes.csv` |
 | 7 | Network analytics + tree canopy integration | `day7_analytics.png`, `day7_shade_tiers.csv`, `day7_canopy_map.png` |
+| 8 | Shade heatmap + isochrone reachability | `day8_shade_heatmap.png`, `day8_isochrone_comparison.png`, `day8_heatmap.geojson` |
+| 9 | Smart waypoint planner + full executive report | `day9_smart_planner.png`, `day9_full_report.html`, URL sharing |
 
 ---
 
@@ -47,17 +49,21 @@ pune-cooler-routes/
 │   ├── enrich_network_shade.py   # Day 3: Shade fraction assignment to edges
 │   ├── day4_router.py            # Day 4: Dual routing (Fastest + Coolest)
 │   ├── day5_engine.py            # Day 5: Extended routing engine
-│   ├── day5_server.py            # Day 5-7: HTTP REST server + web serving
+│   ├── day5_server.py            # Day 5-9: HTTP REST server + static & GeoJSON serving
 │   ├── day5_offline_map.py       # Day 5: Standalone Folium map
 │   ├── day5_test.py              # Day 5: Automated API test suite
 │   ├── day6_router.py            # Day 6: Multi-criteria thermal comfort routing
 │   ├── day6_benchmark.py         # Day 6: 25-route benchmark suite
 │   ├── day7_analytics.py         # Day 7: Network-wide shade analytics
-│   └── day7_ndvi_trees.py        # Day 7: OSM tree canopy integration
+│   ├── day7_ndvi_trees.py        # Day 7: OSM tree canopy integration
+│   ├── day8_shade_heatmap.py     # Day 8: Network shade heatmap & composite score
+│   ├── day8_isochrone.py         # Day 8: Standard vs Shade-priority isochrones
+│   ├── day9_smart_planner.py     # Day 9: Heuristic intermediate waypoint planner
+│   └── day9_report_generator.py  # Day 9: Master self-contained HTML report builder
 ├── web/
-│   ├── index.html                # Day 7 upgraded UI (3-route, thermal, mode toggle)
-│   ├── style.css                 # Dark glassmorphism theme
-│   └── app.js                   # Interactive Leaflet map logic
+│   ├── index.html                # Day 9 UI (3 routes, heatmap overlay, isochrones, history, URL share)
+│   ├── style.css                 # Dark glassmorphism theme & micro-animations
+│   └── app.js                   # Leaflet map logic, live overlays, deep linking
 ├── data/
 │   ├── processed/
 │   │   ├── network.graphml       # Walking graph (3,971 nodes, 10,414 edges)
@@ -70,14 +76,18 @@ pune-cooler-routes/
 │   ├── day3_report.md
 │   ├── day4_report.md
 │   ├── day5_report.md
-│   ├── day5_map.html             # Standalone interactive map
 │   ├── day6_report.md
-│   ├── day6_benchmark.png
-│   ├── day6_benchmark_25routes.csv
-│   ├── day7_report.md            # Final comprehensive report
-│   ├── day7_analytics.png        # 4-panel network shade analytics
-│   ├── day7_shade_tiers.csv      # Per-edge shade tier classification
-│   └── day7_canopy_map.png       # Road network coloured by tree canopy
+│   ├── day7_report.md
+│   ├── day8_report.md
+│   ├── day8_isochrone_report.md
+│   ├── day9_report.md
+│   ├── day9_smart_planner_report.md
+│   ├── day9_full_report.html     # Self-contained 9-day master report (all figures embedded)
+│   ├── day8_heatmap.geojson      # Interactive heatmap overlay
+│   ├── day8_isochrone_shaded.geojson
+│   ├── day8_isochrone_standard.geojson
+│   ├── day8_neighbourhood_scores.csv
+│   └── day9_waypoint_recommendations.csv
 └── requirements.txt
 ```
 
@@ -85,7 +95,7 @@ pune-cooler-routes/
 
 ## Key Results
 
-### Routing Benchmark (Day 6 — 25 Origin-Destination Pairs)
+### 1. Routing Benchmark (Day 6 — 25 Origin-Destination Pairs)
 
 | Metric | Fastest Route | Coolest Route | Delta |
 |---|---|---|---|
@@ -97,37 +107,36 @@ pune-cooler-routes/
 
 > Walk **+44.6 metres more** to gain **4.2% more shade** and feel **3.2°C cooler**!
 
-### Network Shade Analytics (Day 7 — All 10,414 Edges)
+### 2. Isochrone Reachability (Day 8 — 10-Minute Walk from Deccan Gymkhana)
+- Standard walk reachable edges: **57.5%** well-shaded
+- Shade-priority walk reachable edges: **69.4%** well-shaded (**+11.9% improvement**)
 
-| Shade Tier | Edges | Percentage |
-|---|---|---|
-| Deep Canopy (≥60%) | 100 | 1.0% |
-| Moderate Shade (35–60%) | 332 | 3.2% |
-| Partial Shade (15–35%) | 7,872 | 75.6% |
-| Full Sun (<15%) | 2,110 | 20.3% |
+### 3. Neighbourhood Shade Rankings (Day 8)
+1. **Law College Rd** — 40.6% composite shade (7.2% tree bonus)
+2. **Senapati Bapat Marg** — 39.8% composite shade (6.5% tree bonus)
+3. **FC Road / Deccan** — 37.3% composite shade (3.5% tree bonus)
+4. **Prabhat Rd / JM Rd** — 36.1% composite shade (2.9% tree bonus)
+5. **Karve Road** — 35.8% composite shade (1.5% tree bonus)
+6. **Kothrud Core** — 33.9% composite shade (1.3% tree bonus)
 
-### Top Shadiest Walking Corridors (Midday)
-1. **Senapati Bapat Marg** — 56.1% shade (4,992 m corridor)
-2. **Bhandarkar Path** — 56.1% shade (2,446 m)
-3. **Admiral Somnath Path** — 56.2% shade (2,531 m)
-4. **Vishnushastri Chiplunkar Path** — 57.4% shade (3,940 m)
-5. **Sambhaji Bridge** — 57.4% shade (1,035 m)
+### 4. Smart Waypoint Planner (Day 9)
+For long commutes (e.g. MIT-WPU to Fergusson College), routing via intermediate corridors like **Senapati Bapat Marg** or **Chhatrapati Sambhaji Garden** allows pedestrians to bypass high-irradiance segments while keeping detour times under acceptable walking bounds.
 
 ---
 
 ## Run Individual Scripts
 
 ```bash
-# Day 7 scripts
-python scripts/day7_analytics.py      # Generate network analytics figure + CSV
-python scripts/day7_ndvi_trees.py     # Download OSM tree canopy + update edges
+# Day 8 scripts
+python scripts/day8_shade_heatmap.py    # Compute composite shade & export heatmap GeoJSON
+python scripts/day8_isochrone.py        # Compute 5/10/15-min standard & shade isochrones
 
-# Day 6 scripts
-python scripts/day6_benchmark.py      # Run 25-route benchmark
-python scripts/day6_router.py         # Test multi-criteria routing
+# Day 9 scripts
+python scripts/day9_smart_planner.py    # Rank best intermediate shady waypoints
+python scripts/day9_report_generator.py # Compile outputs/day9_full_report.html
 
-# Launch web server
-python scripts/day5_server.py 8050    # Serve full web app at :8050
+# Launch interactive web server
+python scripts/day5_server.py 8050      # Serve web UI, REST API, & GeoJSON layers
 ```
 
 ---
@@ -152,21 +161,11 @@ python scripts/day5_server.py 8050    # Serve full web app at :8050
 - **NetworkX** — Dijkstra shortest-path algorithm
 - **GeoPandas + Shapely** — Geospatial data processing
 - **pybdshadow** — Building shadow casting simulation
-- **Matplotlib** — Analytics figures
+- **Matplotlib** — Analytics and publication figures
 - **Leaflet.js** — Interactive map frontend
 - **Vanilla CSS** — Dark glassmorphism theme (no frameworks)
-- **Python http.server** — Lightweight REST API + static file server
+- **Python http.server** — Lightweight REST API + GeoJSON/HTML server
 
 ---
 
-## Roadmap (v2.0)
-
-1. Digital Elevation Model (DEM) for hill-aware shadow calculation
-2. Land Surface Temperature (LST) satellite data for albedo corrections
-3. Per-footpath shading on wide roads (not just centerline)
-4. Covered walkway / awning detection from street-level imagery
-5. Air quality and traffic weighting
-
----
-
-*Built during a 7-day research sprint | Data: OpenStreetMap contributors*
+*Built during a 9-day research and development sprint | Data: OpenStreetMap contributors*

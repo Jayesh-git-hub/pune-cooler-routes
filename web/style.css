@@ -906,3 +906,172 @@ h1, h2, h3, h4, .brand, .group-label, .route-tag {
   padding-left: 4px;
   border-left: 2px solid rgba(16, 185, 129, 0.4);
 }
+
+/* ==========================================================================
+   Day 8 & 9 UI Additions
+   ========================================================================== */
+
+/* ---- Heatmap Layer Toggle ---- */
+.layer-toggle-section {
+  margin-top: 12px;
+}
+.layer-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.layer-toggle-row:hover {
+  border-color: var(--accent-cool);
+  background: var(--bg-card-hover);
+}
+.layer-toggle-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.layer-toggle-label .lyr-icon { font-size: 1rem; }
+/* iOS-style toggle switch */
+.toggle-switch {
+  width: 38px; height: 20px;
+  background: var(--border-subtle);
+  border-radius: 10px;
+  position: relative;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+.toggle-switch.on { background: var(--accent-cool); }
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+}
+.toggle-switch.on::after { transform: translateX(18px); }
+
+/* ---- Route History Panel ---- */
+.history-section {
+  margin-top: 12px;
+}
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.history-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  font-size: 0.78rem;
+}
+.history-item:hover { border-color: var(--accent-cool); }
+.history-item .h-route { color: var(--text-main); font-weight: 500; }
+.history-item .h-meta { color: var(--text-muted); margin-top: 2px; }
+.history-item .h-shade { color: var(--accent-cool); font-weight: 600; }
+.history-empty { color: var(--text-faint); font-size: 0.8rem; font-style: italic; padding: 8px 0; }
+
+/* ---- Share / Copy URL button ---- */
+.share-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.08);
+  color: #a78bfa;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+}
+.share-btn:hover {
+  background: rgba(167, 139, 250, 0.18);
+  border-color: rgba(167, 139, 250, 0.7);
+}
+
+/* ---- Waypoint Recommendation Card ---- */
+.waypoint-panel {
+  background: rgba(245, 158, 11, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-top: 12px;
+  display: none;
+}
+.waypoint-panel.visible { display: block; }
+.waypoint-panel h4 {
+  font-size: 0.82rem;
+  color: var(--accent-warning);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.waypoint-item {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.waypoint-item:last-child { border-bottom: none; }
+.waypoint-item .wp-gain { color: var(--accent-cool); font-weight: 600; }
+.waypoint-item .wp-cost { color: var(--text-faint); }
+
+/* ---- Report link button ---- */
+.report-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.06);
+  color: #38bdf8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  transition: all var(--transition-fast);
+}
+.report-btn:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+/* ---- Shade Score Tooltip ---- */
+.shade-score-tooltip {
+  position: absolute;
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid var(--accent-cool);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  pointer-events: none;
+  z-index: 1000;
+  min-width: 180px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  display: none;
+}
