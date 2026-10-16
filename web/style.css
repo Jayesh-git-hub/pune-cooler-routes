@@ -1075,3 +1075,335 @@ h1, h2, h3, h4, .brand, .group-label, .route-tag {
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   display: none;
 }
+
+
+/* ==========================================================================
+   Day 10 & Day 11 UI Additions: Dynamic Solar, Heat Strain & Virtual Walker
+   ========================================================================== */
+
+/* Exact Departure Time Picker */
+.custom-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.time-picker-input {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: var(--text-main);
+  padding: 3px 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.time-picker-input:focus {
+  border-color: var(--accent-cool);
+  box-shadow: 0 0 8px var(--accent-cool-glow);
+}
+
+/* Physiological Heat Strain & Hydration Panel */
+.strain-panel {
+  margin-top: 14px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4);
+}
+
+.strain-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.strain-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.strain-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.strain-badge.badge-moderate {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.strain-badge.badge-high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.strain-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.strain-item {
+  background: rgba(15, 23, 42, 0.7);
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.st-label {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.st-val {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.highlight-green {
+  color: #10b981 !important;
+}
+
+.text-emerald {
+  color: #34d399 !important;
+}
+
+.strain-advice {
+  margin-top: 10px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+/* Virtual Walker Simulation HUD */
+.sim-panel {
+  margin-top: 14px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px -8px rgba(6, 182, 212, 0.15);
+}
+
+.sim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sim-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sim-speed-pills {
+  display: flex;
+  gap: 4px;
+}
+
+.speed-pill {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.speed-pill.active {
+  background: #0284c7;
+  color: #fff;
+  border-color: #38bdf8;
+}
+
+.sim-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sim-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #06b6d4 100%);
+  border-radius: var(--radius-full);
+  transition: width 0.12s linear;
+}
+
+.sim-hud-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+  background: rgba(10, 15, 29, 0.6);
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.hud-k {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.hud-v {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.sim-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sim-btn {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  border: none;
+  transition: var(--transition-fast);
+}
+
+.sim-btn-play {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+}
+
+.sim-btn-play:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.sim-btn-reset {
+  background: rgba(51, 65, 85, 0.7);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sim-btn-reset:hover {
+  background: rgba(71, 85, 105, 0.8);
+  color: var(--text-main);
+}
+
+/* Step Navigation Stepper */
+.steps-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step-stepper-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+.step-btn {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.step-btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: var(--accent-cool);
+}
+
+.step-counter {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Animated Walker Icon on Map */
+.walker-marker-icon {
+  background: #10b981;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 14px #10b981, 0 0 28px rgba(16, 185, 129, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  transition: transform 0.1s linear;
+}
+
+/* Active Highlighted Segment on Map */
+.active-step-halo {
+  stroke: #38bdf8 !important;
+  stroke-width: 8 !important;
+  stroke-opacity: 0.85 !important;
+  animation: pulse-halo 1.5s infinite;
+}
+
+@keyframes pulse-halo {
+  0% { stroke-opacity: 0.4; }
+  50% { stroke-opacity: 0.9; }
+  100% { stroke-opacity: 0.4; }
+}

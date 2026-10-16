@@ -2,7 +2,7 @@
 
 **A shade-aware pedestrian navigation system for Pune, India.**
 
-Walk cooler, smarter, and safer through Kothrud, Karve Road, Deccan Gymkhana, and FC Road by choosing routes that maximize tree and building shade — validated across an intensive 9-day research and development sprint.
+Walk cooler, smarter, and safer through Kothrud, Karve Road, Deccan Gymkhana, and FC Road by choosing routes that maximize tree and building shade — validated across an intensive 11-day research and development sprint.
 
 ---
 
@@ -19,7 +19,7 @@ python scripts/day5_server.py 8050
 
 ---
 
-## 9-Day Sprint Summary
+## 11-Day Sprint Summary
 
 | Day | Focus Area | Key Output |
 |---|---|---|
@@ -32,6 +32,8 @@ python scripts/day5_server.py 8050
 | 7 | Network analytics + tree canopy integration | `day7_analytics.png`, `day7_shade_tiers.csv`, `day7_canopy_map.png` |
 | 8 | Shade heatmap + isochrone reachability | `day8_shade_heatmap.png`, `day8_isochrone_comparison.png`, `day8_heatmap.geojson` |
 | 9 | Smart waypoint planner + full executive report | `day9_smart_planner.png`, `day9_full_report.html`, URL sharing |
+| 10 | Dynamic sun-marching solar routing & walkability | `day10_walkability_audit.png`, `day10_walkability_corridors.csv`, `day10_safe_cool_benchmark.csv` |
+| 11 | Physiological heat strain & Virtual Walker HUD | `day11_thermal_strain.png`, `day11_heat_strain_profiles.csv`, interactive simulation HUD |
 
 ---
 
@@ -49,7 +51,7 @@ pune-cooler-routes/
 │   ├── enrich_network_shade.py   # Day 3: Shade fraction assignment to edges
 │   ├── day4_router.py            # Day 4: Dual routing (Fastest + Coolest)
 │   ├── day5_engine.py            # Day 5: Extended routing engine
-│   ├── day5_server.py            # Day 5-9: HTTP REST server + static & GeoJSON serving
+│   ├── day5_server.py            # Days 5-11: Full-stack HTTP REST & static server
 │   ├── day5_offline_map.py       # Day 5: Standalone Folium map
 │   ├── day5_test.py              # Day 5: Automated API test suite
 │   ├── day6_router.py            # Day 6: Multi-criteria thermal comfort routing
@@ -59,11 +61,14 @@ pune-cooler-routes/
 │   ├── day8_shade_heatmap.py     # Day 8: Network shade heatmap & composite score
 │   ├── day8_isochrone.py         # Day 8: Standard vs Shade-priority isochrones
 │   ├── day9_smart_planner.py     # Day 9: Heuristic intermediate waypoint planner
-│   └── day9_report_generator.py  # Day 9: Master self-contained HTML report builder
+│   ├── day9_report_generator.py  # Day 9: Master self-contained HTML report builder
+│   ├── day10_dynamic_router.py   # Day 10: Dynamic time-marching solar router
+│   ├── day10_walkability.py      # Day 10: Walkability safety audit & benchmark
+│   └── day11_heat_strain.py      # Day 11: Biometeorological heat strain & hydration
 ├── web/
-│   ├── index.html                # Day 9 UI (3 routes, heatmap overlay, isochrones, history, URL share)
-│   ├── style.css                 # Dark glassmorphism theme & micro-animations
-│   └── app.js                   # Leaflet map logic, live overlays, deep linking
+│   ├── index.html                # Complete UI (Virtual Walker HUD, Heat Strain, Stepper, Overlays)
+│   ├── style.css                 # Midnight Glassmorphism theme with micro-animations
+│   └── app.js                   # Leaflet map logic, animated walker, real-time gauges
 ├── data/
 │   ├── processed/
 │   │   ├── network.graphml       # Walking graph (3,971 nodes, 10,414 edges)
@@ -79,64 +84,58 @@ pune-cooler-routes/
 │   ├── day6_report.md
 │   ├── day7_report.md
 │   ├── day8_report.md
-│   ├── day8_isochrone_report.md
 │   ├── day9_report.md
-│   ├── day9_smart_planner_report.md
-│   ├── day9_full_report.html     # Self-contained 9-day master report (all figures embedded)
-│   ├── day8_heatmap.geojson      # Interactive heatmap overlay
-│   ├── day8_isochrone_shaded.geojson
-│   ├── day8_isochrone_standard.geojson
-│   ├── day8_neighbourhood_scores.csv
-│   └── day9_waypoint_recommendations.csv
+│   ├── day10_report.md
+│   ├── day11_report.md
+│   ├── day9_full_report.html     # Self-contained master report
+│   ├── day10_walkability_audit.png
+│   ├── day10_walkability_corridors.csv
+│   ├── day10_safe_cool_benchmark.csv
+│   ├── day11_thermal_strain.png
+│   └── day11_heat_strain_profiles.csv
 └── requirements.txt
 ```
 
 ---
 
-## Key Results
+## Key Results Across Sprints
 
-### 1. Routing Benchmark (Day 6 — 25 Origin-Destination Pairs)
+### 1. Dynamic Sun-Marching & Solar Heat Shielding (Day 10)
+- Traditional routing assumes a static noon angle. Day 10 continuously advances the solar trajectory as pedestrians walk.
+- In peak 13:00 sun across 10 benchmark routes:
+  - Average shade increase: **+9.3%**
+  - Average detour: only **+224.8 metres (+1.2 min)**
+  - Direct solar heat radiation avoided: **123.0 kJ** on typical university commutes
 
-| Metric | Fastest Route | Coolest Route | Delta |
-|---|---|---|---|
-| Avg Shade | 30.2% | 34.4% | **+4.2%** |
-| Avg Distance | 2,382.8 m | 2,427.4 m | +44.6 m |
-| Avg Duration | 29.8 min | 30.3 min | +0.6 min |
-| Solar Irradiance | 728.0 W/m² | 693.2 W/m² | **−34.8 W/m²** |
-| Apparent Temp Relief | — | — | **−3.2°C** |
+### 2. Corridor Walkability & Safety Rankings (Day 10)
+1. **Senapati Bapat Marg** — 87.6 Walkability Score (95% sidewalk continuity, 100% shade coverage)
+2. **Bhandarkar Road** — 50.0 Walkability Score (Dense banyan tree canopy)
+3. **Karve Road** — 24.5 Walkability Score (Arterial corridor, high tree canopy buffer)
+4. **Prabhat Road** — 24.5 Walkability Score (Quiet residential tree canopy)
 
-> Walk **+44.6 metres more** to gain **4.2% more shade** and feel **3.2°C cooler**!
+### 3. Biometeorological Heat Strain Relief (Day 11)
+- Pedestrian sweat loss rate in unshaded sun: **up to 345 mL/hour**.
+- Shaded Dynamic Safe+Cool route reduces sweat rate by **15 to 25 mL/hour**, saving over **65 mL of fluid per commute**.
+- Automated canopy rest stop algorithm flags shaded pause nodes every 15–25 minutes.
 
-### 2. Isochrone Reachability (Day 8 — 10-Minute Walk from Deccan Gymkhana)
-- Standard walk reachable edges: **57.5%** well-shaded
-- Shade-priority walk reachable edges: **69.4%** well-shaded (**+11.9% improvement**)
-
-### 3. Neighbourhood Shade Rankings (Day 8)
-1. **Law College Rd** — 40.6% composite shade (7.2% tree bonus)
-2. **Senapati Bapat Marg** — 39.8% composite shade (6.5% tree bonus)
-3. **FC Road / Deccan** — 37.3% composite shade (3.5% tree bonus)
-4. **Prabhat Rd / JM Rd** — 36.1% composite shade (2.9% tree bonus)
-5. **Karve Road** — 35.8% composite shade (1.5% tree bonus)
-6. **Kothrud Core** — 33.9% composite shade (1.3% tree bonus)
-
-### 4. Smart Waypoint Planner (Day 9)
-For long commutes (e.g. MIT-WPU to Fergusson College), routing via intermediate corridors like **Senapati Bapat Marg** or **Chhatrapati Sambhaji Garden** allows pedestrians to bypass high-irradiance segments while keeping detour times under acceptable walking bounds.
+### 4. Interactive Virtual Walker HUD (Day 11)
+- Real-time animated pedestrian avatar moves along the polyline with variable simulation playback speeds (1x, 5x, 15x).
+- Live dashboard displaying instantaneous shade percentage, solar flux ($W/m^2$), and elapsed transit time.
 
 ---
 
 ## Run Individual Scripts
 
 ```bash
-# Day 8 scripts
-python scripts/day8_shade_heatmap.py    # Compute composite shade & export heatmap GeoJSON
-python scripts/day8_isochrone.py        # Compute 5/10/15-min standard & shade isochrones
+# Day 10 scripts
+python scripts/day10_dynamic_router.py  # Test dynamic sun-marching route solver
+python scripts/day10_walkability.py     # Run 10-corridor walkability audit & benchmark
 
-# Day 9 scripts
-python scripts/day9_smart_planner.py    # Rank best intermediate shady waypoints
-python scripts/day9_report_generator.py # Compile outputs/day9_full_report.html
+# Day 11 scripts
+python scripts/day11_heat_strain.py     # Run physiological heat strain & hydration models
 
 # Launch interactive web server
-python scripts/day5_server.py 8050      # Serve web UI, REST API, & GeoJSON layers
+python scripts/day5_server.py 8050      # Serves web UI, REST API, & GeoJSON layers
 ```
 
 ---
@@ -150,22 +149,8 @@ python scripts/day5_server.py 8050      # Serve web UI, REST API, & GeoJSON laye
 | Focus Roads | Karve Road, Senapati Bapat Marg, FC Road, Law College Road |
 | Nodes | 3,971 |
 | Edges | 10,414 |
-| Shadow Simulation | pybdshadow (09:00, 13:00, 16:00, May 15, 2024) |
+| Shadow Simulation | pybdshadow (09:00, 13:00, 16:00, May 15, 2024) + OSM Green Canopy |
 
 ---
 
-## Tech Stack
-
-- **Python 3.11+** — Core language
-- **OSMnx 2.x** — OpenStreetMap network download + routing
-- **NetworkX** — Dijkstra shortest-path algorithm
-- **GeoPandas + Shapely** — Geospatial data processing
-- **pybdshadow** — Building shadow casting simulation
-- **Matplotlib** — Analytics and publication figures
-- **Leaflet.js** — Interactive map frontend
-- **Vanilla CSS** — Dark glassmorphism theme (no frameworks)
-- **Python http.server** — Lightweight REST API + GeoJSON/HTML server
-
----
-
-*Built during a 9-day research and development sprint | Data: OpenStreetMap contributors*
+*Built during an 11-day research and development sprint | Data: OpenStreetMap contributors*

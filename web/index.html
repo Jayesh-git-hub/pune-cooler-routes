@@ -80,6 +80,10 @@
             <button class="time-btn" data-hour="16">🌤️ 16:00<br><small>Afternoon</small></button>
             <button class="time-btn" data-hour="live">⏱️ Live<br><small>Clock</small></button>
           </div>
+          <div class="custom-time-row">
+            <label for="customTimeInput">Exact Departure:</label>
+            <input type="time" id="customTimeInput" value="13:00" class="time-picker-input">
+          </div>
         </div>
 
         <!-- Routing Mode Toggle (Day 7 addition) -->
@@ -87,7 +91,8 @@
           <label class="group-label">Routing Engine</label>
           <div class="mode-toggle" id="modeToggle">
             <button class="mode-btn" data-mode="standard" id="modeStandard">⚡ Standard</button>
-            <button class="mode-btn active" data-mode="balanced" id="modeBalanced">🛡️ Balanced (Day 6)</button>
+            <button class="mode-btn" data-mode="balanced" id="modeBalanced">🛡️ Balanced</button>
+            <button class="mode-btn active" data-mode="dynamic" id="modeDynamic">🌤️ Dynamic Safe</button>
           </div>
         </div>
 
@@ -232,12 +237,71 @@
           </div>
         </div>
 
+        <!-- Day 11: Physiological Heat Strain & Hydration Panel -->
+        <div class="strain-panel" id="heatStrainPanel" style="display:none">
+          <div class="strain-header">
+            <span class="strain-title">💧 Heat Strain & Hydration</span>
+            <span class="strain-badge" id="strainRiskBadge">LOW RISK</span>
+          </div>
+          <div class="strain-grid">
+            <div class="strain-item">
+              <span class="st-label">Sweat Rate</span>
+              <strong class="st-val" id="sweatRateVal">-- mL/h</strong>
+            </div>
+            <div class="strain-item">
+              <span class="st-label">Trip Fluid Loss</span>
+              <strong class="st-val" id="waterLossVal">-- mL</strong>
+            </div>
+            <div class="strain-item">
+              <span class="st-label">Water Shielded</span>
+              <strong class="st-val highlight-green" id="waterSavedVal">-- mL</strong>
+            </div>
+            <div class="strain-item">
+              <span class="st-label">Canopy Pauses</span>
+              <strong class="st-val" id="restStopsVal">-- stops</strong>
+            </div>
+          </div>
+          <div class="strain-advice" id="hydrationAdvice">Stay hydrated during peak sun hours.</div>
+        </div>
+
+        <!-- Day 11: Virtual Walker Simulation HUD -->
+        <div class="sim-panel" id="simulationPanel" style="display:none">
+          <div class="sim-header">
+            <span class="sim-title">🚶 Virtual Walker HUD</span>
+            <div class="sim-speed-pills">
+              <button class="speed-pill active" data-speed="1">1x</button>
+              <button class="speed-pill" data-speed="5">5x</button>
+              <button class="speed-pill" data-speed="15">15x</button>
+            </div>
+          </div>
+          <div class="sim-progress-track">
+            <div class="sim-progress-fill" id="simProgressBar" style="width: 0%"></div>
+          </div>
+          <div class="sim-hud-row">
+            <div class="hud-col"><span class="hud-k">Walked</span><strong class="hud-v" id="hudDistance">0 m</strong></div>
+            <div class="hud-col"><span class="hud-k">Instant Shade</span><strong class="hud-v text-emerald" id="hudShade">--%</strong></div>
+            <div class="hud-col"><span class="hud-k">Solar Flux</span><strong class="hud-v" id="hudSolar">-- W/m²</strong></div>
+            <div class="hud-col"><span class="hud-k">Elapsed</span><strong class="hud-v" id="hudElapsed">00:00</strong></div>
+          </div>
+          <div class="sim-actions">
+            <button class="sim-btn sim-btn-play" id="simPlayBtn">▶ Start Walk</button>
+            <button class="sim-btn sim-btn-reset" id="simResetBtn">⏮ Reset</button>
+          </div>
+        </div>
+
         <!-- Turn-by-Turn Navigation Steps Accordion -->
         <div class="steps-container">
-          <button class="accordion-toggle" id="toggleStepsBtn">
-            <span>🚶 Turn-by-Turn Cool Route Steps</span>
-            <span class="accordion-arrow">▼</span>
-          </button>
+          <div class="steps-nav-header">
+            <button class="accordion-toggle" id="toggleStepsBtn">
+              <span>🚶 Turn-by-Turn Guidance & Advisories</span>
+              <span class="accordion-arrow">▼</span>
+            </button>
+            <div class="step-stepper-btns" id="stepStepperBtns" style="display:none">
+              <button class="step-btn" id="stepPrevBtn" title="Previous Step">◀</button>
+              <span class="step-counter" id="stepCounter">1 / 1</span>
+              <button class="step-btn" id="stepNextBtn" title="Next Step">▶</button>
+            </div>
+          </div>
           <div class="steps-list" id="stepsList"></div>
         </div>
 
@@ -267,7 +331,7 @@
 
       <!-- Footer -->
       <footer class="app-footer">
-        <p>Built for Pune Walkers • Day 7 • OSM + pybdshadow + Tree Canopy</p>
+        <p>Built for Pune Walkers • Days 1 to 11 • Dynamic Solar + Virtual Walker + Heat Strain</p>
       </footer>
     </aside>
 

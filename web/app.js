@@ -1,3 +1,15 @@
+
+function extractCoords(routeObj) {
+  if (!routeObj) return null;
+  if (routeObj.coordinates && routeObj.coordinates.length > 0) {
+    return routeObj.coordinates;
+  }
+  if (routeObj.geojson && routeObj.geojson.coordinates) {
+    return routeObj.geojson.coordinates.map(pt => [pt[1], pt[0]]);
+  }
+  return null;
+}
+
 ﻿/**
  * Pune Cooler Routes - Day 7 Interactive Map Application
  * Adds: Balanced route (3rd polyline), thermal comfort display, routing mode toggle
@@ -16,7 +28,7 @@ let currentRouteData = null;
 
 let selectedHour    = 13;
 let selectedCoolness = 2.5;
-let selectedMode    = "balanced";   // Day 7 default: Day 6 multi-criteria engine
+let selectedMode    = "dynamic";   // Day 7 default: Day 6 multi-criteria engine
 
 // Pilot Bounding Box (west, south, east, north)
 const PILOT_BBOX = [73.802, 18.495, 73.846, 18.531];
@@ -153,10 +165,12 @@ async function calculateRoutes() {
   btn.innerHTML = `<span class="btn-icon">⏳</span> Computing...`;
   btn.disabled = true;
 
-  // Build URL with mode parameter
+  // Build URL with time & mode parameters
+  const customTimeElem = document.getElementById("customTimeInput");
+  const timeQueryVal = (customTimeElem && customTimeElem.value) ? customTimeElem.value : `${selectedHour}:00`;
   const url = `/api/route?start_lat=${startLatLng.lat}&start_lon=${startLatLng.lng}` +
               `&dest_lat=${destLatLng.lat}&dest_lon=${destLatLng.lng}` +
-              `&hour=${selectedHour}&coolness=${selectedCoolness}&mode=${selectedMode}`;
+              `&hour=${selectedHour}&time=${timeQueryVal}&coolness=${selectedCoolness}&mode=${selectedMode}`;
 
   try {
     const res = await fetch(url);
@@ -179,9 +193,9 @@ async function calculateRoutes() {
 function renderRoutesOnMap(data) {
   clearRouteLayers();
 
-  const fastCoords = data.fastest ? data.fastest.coordinates : null;
-  const coolCoords = data.coolest ? data.coolest.coordinates : null;
-  const balCoords  = data.balanced ? data.balanced.coordinates : null;
+  const fastCoords = extractCoords(data.fastest);
+  const coolCoords = extractCoords(data.coolest);
+  const balCoords  = extractCoords(data.balanced);
 
   // Fastest Route (Cyan Dashed)
   if (fastCoords && fastCoords.length > 1) {
@@ -727,5 +741,264 @@ document.addEventListener("DOMContentLoaded", () => {
   const shareBtn = document.getElementById("shareRouteBtn");
   if (shareBtn) {
     shareBtn.addEventListener("click", shareRouteURL);
+  }
+});
+
+
+/* ==========================================================================
+   Day 10 & Day 11 Virtual Walker Simulation & Step Navigation Engine
+   ========================================================================== */
+
+let walkerMarker = null;
+let simInterval = null;
+let simIndex = 0;
+let simCoords = [];
+let simSpeed = 1;
+let simIsPlaying = false;
+let simElapsedSeconds = 0;
+let currentStepIndex = 0;
+
+function setupVirtualWalker(coolCoords) {
+  const panel = document.getElementById("simulationPanel");
+  if (!panel || !coolCoords || coolCoords.length === 0) {
+    if (panel) panel.style.display = "none";
+    return;
+  }
+  panel.style.display = "";
+  simCoords = coolCoords;
+  resetSimulation();
+}
+
+function resetSimulation() {
+  pauseSimulation();
+  simIndex = 0;
+  simElapsedSeconds = 0;
+  updateSimHUD(0, 0, 0, "00:00");
+  const pBar = document.getElementById("simProgressBar");
+  if (pBar) pBar.style.width = "0%";
+  const playBtn = document.getElementById("simPlayBtn");
+  if (playBtn) playBtn.innerHTML = "▶ Start Walk";
+
+  if (simCoords && simCoords.length > 0) {
+    const startPt = simCoords[0];
+    if (!walkerMarker) {
+      const walkerIcon = L.divIcon({
+        className: 'walker-marker-icon',
+        html: '🚶',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+      walkerMarker = L.marker(startPt, { icon: walkerIcon, zIndexOffset: 1000 }).addTo(map);
+    } else {
+      walkerMarker.setLatLng(startPt);
+    }
+  }
+}
+
+function startSimulation() {
+  if (!simCoords || simCoords.length === 0) return;
+  simIsPlaying = true;
+  const playBtn = document.getElementById("simPlayBtn");
+  if (playBtn) playBtn.innerHTML = "⏸ Pause Walk";
+
+  if (simInterval) clearInterval(simInterval);
+  simInterval = setInterval(() => {
+    if (simIndex >= simCoords.length - 1) {
+      pauseSimulation();
+      if (playBtn) playBtn.innerHTML = "✅ Walk Finished";
+      return;
+    }
+
+    simIndex = Math.min(simCoords.length - 1, simIndex + simSpeed);
+    const currPt = simCoords[simIndex];
+    if (walkerMarker) {
+      walkerMarker.setLatLng(currPt);
+    }
+
+    const pct = ((simIndex / (simCoords.length - 1)) * 100).toFixed(1);
+    const pBar = document.getElementById("simProgressBar");
+    if (pBar) pBar.style.width = `${pct}%`;
+
+    const totalDist = currentRouteData && currentRouteData.coolest ? currentRouteData.coolest.distance_m : 2500;
+    const walkedDist = Math.round((simIndex / (simCoords.length - 1)) * totalDist);
+    simElapsedSeconds += (simSpeed * 1.5);
+    const mins = Math.floor(simElapsedSeconds / 60);
+    const secs = Math.floor(simElapsedSeconds % 60);
+    const elapsedStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+    let instantShade = 65;
+    let solarFlux = 620;
+    if (currentRouteData && currentRouteData.steps && currentRouteData.steps.length > 0) {
+      const stepIdx = Math.min(currentRouteData.steps.length - 1, Math.floor((simIndex / simCoords.length) * currentRouteData.steps.length));
+      instantShade = currentRouteData.steps[stepIdx].shade_pct || 65;
+      solarFlux = currentRouteData.steps[stepIdx].solar_irradiance_w || 620;
+    }
+
+    updateSimHUD(walkedDist, instantShade, solarFlux, elapsedStr);
+  }, 100);
+}
+
+function pauseSimulation() {
+  simIsPlaying = false;
+  if (simInterval) {
+    clearInterval(simInterval);
+    simInterval = null;
+  }
+  const playBtn = document.getElementById("simPlayBtn");
+  if (playBtn) playBtn.innerHTML = "▶ Resume Walk";
+}
+
+function updateSimHUD(dist, shade, solar, timeStr) {
+  const d = document.getElementById("hudDistance");
+  const s = document.getElementById("hudShade");
+  const f = document.getElementById("hudSolar");
+  const t = document.getElementById("hudElapsed");
+  if (d) d.innerText = `${dist} m`;
+  if (s) s.innerText = `${shade}%`;
+  if (f) f.innerText = `${solar} W/m²`;
+  if (t) t.innerText = timeStr;
+}
+
+function renderHeatStrain(thermal) {
+  const panel = document.getElementById("heatStrainPanel");
+  if (!panel) return;
+  if (!thermal) {
+    panel.style.display = "none";
+    return;
+  }
+  panel.style.display = "";
+  const sr = document.getElementById("sweatRateVal");
+  const wl = document.getElementById("waterLossVal");
+  const ws = document.getElementById("waterSavedVal");
+  const rs = document.getElementById("restStopsVal");
+  const badge = document.getElementById("strainRiskBadge");
+  const adv = document.getElementById("hydrationAdvice");
+
+  if (sr) sr.innerText = `${thermal.sweat_rate_ml_hr || 280} mL/h`;
+  if (wl) wl.innerText = `${thermal.water_loss_ml || 195} mL`;
+  if (ws) ws.innerText = `-${thermal.water_saved_ml || 55} mL`;
+  if (rs) rs.innerText = `${thermal.rest_stops || 1} pause(s)`;
+
+  if (badge) {
+    const lvl = (thermal.risk_level || "Low").toUpperCase();
+    badge.innerText = `${lvl} RISK`;
+    badge.className = "strain-badge " + (lvl === "HIGH" ? "badge-high" : (lvl === "MODERATE" ? "badge-moderate" : "badge-low"));
+  }
+  if (adv) {
+    adv.innerText = `Recommended fluid intake: ${thermal.recommended_intake_ml || 250} mL. Take shaded pauses under canopy clusters.`;
+  }
+}
+
+function renderTurnStepsExtended(steps) {
+  const stepsList = document.getElementById("stepsList");
+  const stepper = document.getElementById("stepStepperBtns");
+  if (!stepsList) return;
+  stepsList.innerHTML = "";
+  if (!steps || steps.length === 0) {
+    if (stepper) stepper.style.display = "none";
+    return;
+  }
+  if (stepper) stepper.style.display = "flex";
+  currentStepIndex = 0;
+  updateStepCounter(steps.length);
+
+  steps.forEach((step, idx) => {
+    const div = document.createElement("div");
+    const isShaded = (step.shade_pct || (step.is_shaded ? 70 : 10)) >= 35;
+    div.className = `step-item ${isShaded ? "shaded" : ""}`;
+    div.dataset.stepIdx = idx;
+    div.innerHTML = `
+      <div class="step-street">
+        <span>${isShaded ? "🌳" : "☀️"} ${step.street}</span>
+        <span class="step-compass-badge" style="font-size:0.75rem;opacity:0.8;">${step.compass || "🚶"} · ${step.shade_pct || (step.is_shaded ? "Shaded" : "Sun")}%</span>
+      </div>
+      <div class="step-meta" style="font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between;margin:3px 0;">
+        <span>${step.distance_m} m</span>
+        <span>${step.infrastructure || "Sidewalk"}</span>
+      </div>
+      ${step.advisory ? `<div class="step-advisory" style="font-size:0.73rem;color:#34d399;margin-top:2px;">💡 ${step.advisory}</div>` : ""}
+    `;
+    div.addEventListener("click", () => focusStep(idx));
+    stepsList.appendChild(div);
+  });
+}
+
+function focusStep(idx) {
+  const steps = currentRouteData ? (currentRouteData.steps || (currentRouteData.coolest && currentRouteData.coolest.steps)) : null;
+  if (!steps || idx < 0 || idx >= steps.length) return;
+  currentStepIndex = idx;
+  updateStepCounter(steps.length);
+
+  document.querySelectorAll(".step-item").forEach((el, i) => {
+    el.style.background = (i === idx) ? "rgba(6, 182, 212, 0.25)" : "";
+    el.style.borderColor = (i === idx) ? "#06b6d4" : "";
+  });
+
+  const coolCoords = extractCoords(currentRouteData.coolest);
+  if (coolCoords && coolCoords.length > 0) {
+    const ratio = idx / steps.length;
+    const coordIdx = Math.min(coolCoords.length - 1, Math.floor(ratio * coolCoords.length));
+    const pt = coolCoords[coordIdx];
+    map.panTo(pt, { animate: true, duration: 0.4 });
+  }
+}
+
+function updateStepCounter(total) {
+  const c = document.getElementById("stepCounter");
+  if (c) c.innerText = `${currentStepIndex + 1} / ${total}`;
+}
+
+// Hook into calculateRoutes completion
+const _postDay10Hook = calculateRoutes;
+calculateRoutes = async function() {
+  await _postDay10Hook.apply(this, arguments);
+  if (currentRouteData) {
+    const coolCoords = extractCoords(currentRouteData.coolest);
+    setupVirtualWalker(coolCoords);
+    renderHeatStrain(currentRouteData.thermal);
+    renderTurnStepsExtended(currentRouteData.steps || (currentRouteData.coolest ? currentRouteData.coolest.steps : []));
+  }
+};
+
+// Wire up controls on DOM ready
+document.addEventListener("DOMContentLoaded", () => {
+  // Wire up Play / Reset simulation buttons
+  const playBtn = document.getElementById("simPlayBtn");
+  if (playBtn) {
+    playBtn.addEventListener("click", () => {
+      if (simIsPlaying) pauseSimulation();
+      else startSimulation();
+    });
+  }
+  const resetBtn = document.getElementById("simResetBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", resetSimulation);
+  }
+
+  // Speed pills
+  document.querySelectorAll(".speed-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".speed-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      simSpeed = parseInt(pill.getAttribute("data-speed")) || 1;
+    });
+  });
+
+  // Step Steppers
+  const prevBtn = document.getElementById("stepPrevBtn");
+  if (prevBtn) {
+    prevBtn.addEventListener("click", () => focusStep(currentStepIndex - 1));
+  }
+  const nextBtn = document.getElementById("stepNextBtn");
+  if (nextBtn) {
+    nextBtn.addEventListener("click", () => focusStep(currentStepIndex + 1));
+  }
+
+  // Custom departure time input
+  const timeInput = document.getElementById("customTimeInput");
+  if (timeInput) {
+    timeInput.addEventListener("change", () => {
+      calculateRoutes();
+    });
   }
 });
