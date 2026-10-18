@@ -1,371 +1,426 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pune Cooler Routes - Smart Shade-Aware Pedestrian Navigation</title>
-  <meta name="description" content="Navigate Pune's streets smartly. Find the shadiest, coolest walking routes using real-time shadow simulation and thermal comfort analysis.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pune Cooler Routes - Google Maps Style Pedestrian Navigation</title>
+  <meta name="description" content="Navigate Pune smartly. Find the shadiest, coolest walking routes using high-precision solar shadow simulations, tree canopies, and clean air corridors.">
 
-  <!-- Modern Typography from Google Fonts -->
+  <!-- Modern Typography (Roboto & Google Sans / Outfit) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Google+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
-  <!-- Application CSS & PWA Manifest -->
+  <!-- Google Maps Style CSS & PWA Manifest -->
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#10b981">
+  <meta name="theme-color" content="#1a73e8">
   <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
-<body>
-  <div class="app-layout">
+<body class="gmaps-theme">
 
-    <!-- Sidebar / Floating Glass Panel -->
-    <aside class="sidebar" id="sidebar">
-      <!-- Header -->
-      <header class="app-header">
-        <div class="brand">
-          <div class="logo-icon">🌿</div>
-          <div>
-            <h1>Pune Cooler Routes</h1>
-            <p class="subtitle">Shade-Aware Pedestrian Navigator • Pilot Area</p>
-          </div>
-        </div>
-        <div class="status-badge" id="networkStatus">
-          <span class="status-dot"></span> 3,971 Nodes Active
-        </div>
-      </header>
+  <!-- Fullscreen Map Canvas -->
+  <div id="map" class="fullscreen-map"></div>
 
-      <!-- Controls Form -->
-      <section class="controls-section">
-        <!-- Quick Landmarks -->
-        <div class="control-group">
-          <label class="group-label">Quick Landmark Presets</label>
-          <div class="preset-chips" id="presetChips">
-            <button class="locate-gps-chip" id="locateMeBtn">📍 Use My GPS</button>
-            <button class="chip active" data-from="mit_wpu" data-to="fergusson">MIT ➔ Fergusson</button>
-            <button class="chip" data-from="deccan" data-to="ils_law">Deccan ➔ ILS Law</button>
-            <button class="chip" data-from="bmcc" data-to="sambhaji_park">BMCC ➔ Sambhaji</button>
-            <button class="chip" data-from="kamla_nehru" data-to="fc_market">Prabhat Rd ➔ FC Mkt</button>
-          </div>
-        </div>
-
-        <!-- Custom Origin / Destination Pickers -->
-        <div class="route-inputs">
-          <div class="input-card">
-            <span class="pin-indicator start-pin">●</span>
-            <div class="input-details">
-              <label for="startSelect">Origin (Start)</label>
-              <select id="startSelect" class="location-select"></select>
-            </div>
-          </div>
-          <div class="route-swap-btn" id="swapLocationsBtn" title="Swap Locations">⇅</div>
-          <div class="input-card">
-            <span class="pin-indicator end-pin">●</span>
-            <div class="input-details">
-              <label for="destSelect">Destination (End)</label>
-              <select id="destSelect" class="location-select"></select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Time of Day Selector -->
-        <div class="control-group">
-          <div class="label-with-val">
-            <label class="group-label">Time of Day (Sun Angle)</label>
-            <span class="active-val" id="timeLabel">13:00 (Midday Sun)</span>
-          </div>
-          <div class="time-buttons">
-            <button class="time-btn" data-hour="9">☀️ 09:00<br><small>Morning</small></button>
-            <button class="time-btn active" data-hour="13">🔥 13:00<br><small>Midday</small></button>
-            <button class="time-btn" data-hour="16">🌤️ 16:00<br><small>Afternoon</small></button>
-            <button class="time-btn" data-hour="live">⏱️ Live<br><small>Clock</small></button>
-          </div>
-          <div class="custom-time-row">
-            <label for="customTimeInput">Exact Departure:</label>
-            <input type="time" id="customTimeInput" value="13:00" class="time-picker-input">
-          </div>
-        </div>
-
-        <!-- Routing Mode Toggle (Day 7 addition) -->
-        <div class="control-group">
-          <label class="group-label">Routing Engine</label>
-          <div class="mode-toggle" id="modeToggle">
-            <button class="mode-btn" data-mode="standard" id="modeStandard">⚡ Standard</button>
-            <button class="mode-btn" data-mode="balanced" id="modeBalanced">🛡️ Balanced</button>
-            <button class="mode-btn active" data-mode="dynamic" id="modeDynamic">🌤️ Dynamic Safe</button>
-          </div>
-        </div>
-
-        <!-- Coolness Multiplier Slider -->
-        <div class="control-group">
-          <div class="label-with-val">
-            <label class="group-label" for="coolnessSlider">Shade Preference</label>
-            <span class="active-val" id="coolnessVal">2.5x (Balanced)</span>
-          </div>
-          <input type="range" id="coolnessSlider" min="1.0" max="5.0" step="0.5" value="2.5" class="range-slider">
-          <div class="slider-labels">
-            <span>Fast / Direct</span>
-            <span>Balanced</span>
-            <span>Maximum Shade</span>
-          </div>
-        </div>
-
-
-        <!-- Day 8: Map Layers Toggle -->
-        <div class="control-group layer-toggle-section">
-          <label class="group-label">Map Overlay Layers</label>
-          <div class="layer-toggle-row" id="toggleHeatmapRow" onclick="toggleHeatmap()">
-            <span class="layer-toggle-label"><span class="lyr-icon">🌡️</span> Shade Heatmap Overlay</span>
-            <div class="toggle-switch" id="heatmapToggle"></div>
-          </div>
-          <div class="layer-toggle-row" id="toggleIsochroneRow" onclick="toggleIsochrone()">
-            <span class="layer-toggle-label"><span class="lyr-icon">⏱️</span> 5/10/15-min Isochrones</span>
-            <div class="toggle-switch" id="isochroneToggle"></div>
-          </div>
-        </div>
-        <!-- Action Button -->
-        <button id="findRoutesBtn" class="primary-btn">
-          <span class="btn-icon">⚡</span> Calculate Routes
-        </button>
-      </section>
-
-      <!-- Results & Tradeoff Comparison Panel -->
-      <section class="results-section" id="resultsSection">
-        <!-- Tradeoff Summary Banner -->
-        <div class="tradeoff-card" id="tradeoffCard">
-          <div class="tradeoff-icon">🛡️</div>
-          <div class="tradeoff-content">
-            <div class="tradeoff-badge" id="tradeoffBadge">SHADE ADVANTAGE</div>
-            <h3 id="tradeoffVerdict">Calculating optimal route...</h3>
-          </div>
-        </div>
-
-        <!-- Thermal Comfort Score (Day 7 addition) -->
-        <div class="thermal-panel" id="thermalPanel" style="display:none">
-          <div class="thermal-row">
-            <span class="thermal-icon">🌡️</span>
-            <div class="thermal-content">
-              <div class="thermal-label">Apparent Temperature Relief</div>
-              <div class="thermal-value" id="thermalRelief">-- °C</div>
-            </div>
-          </div>
-          <div class="thermal-row">
-            <span class="thermal-icon">☀️</span>
-            <div class="thermal-content">
-              <div class="thermal-label">Solar Heat Avoided (Coolest Route)</div>
-              <div class="thermal-value heat-value" id="heatAvoided">-- W/m²</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Three-Route Metric Cards (Day 7: adds Balanced) -->
-        <div class="metrics-grid three-col" id="metricsGrid">
-          <!-- Fastest Card -->
-          <div class="metric-card fast-card">
-            <div class="card-header">
-              <span class="route-tag fast-tag">⚡ FASTEST</span>
-              <span class="metric-time" id="fastTime">-- min</span>
-            </div>
-            <div class="metric-stat">
-              <span class="stat-number" id="fastDist">-- m</span>
-              <span class="stat-label">Physical Distance</span>
-            </div>
-            <div class="shade-meter-container">
-              <div class="meter-label">
-                <span>Tree/Building Shade</span>
-                <strong id="fastShadePct">--%</strong>
-              </div>
-              <div class="meter-bar">
-                <div class="meter-fill fast-fill" id="fastShadeBar" style="width: 0%"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Balanced Card (Day 7 addition) -->
-          <div class="metric-card bal-card" id="balancedCard" style="display:none">
-            <div class="card-header">
-              <span class="route-tag bal-tag">🛡️ BALANCED</span>
-              <span class="metric-time" id="balTime">-- min</span>
-            </div>
-            <div class="metric-stat">
-              <span class="stat-number" id="balDist">-- m</span>
-              <span class="stat-label">Safe + Cool Distance</span>
-            </div>
-            <div class="shade-meter-container">
-              <div class="meter-label">
-                <span>Tree/Building Shade</span>
-                <strong id="balShadePct" class="highlight-purple">--%</strong>
-              </div>
-              <div class="meter-bar">
-                <div class="meter-fill bal-fill" id="balShadeBar" style="width: 0%"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Coolest Card -->
-          <div class="metric-card cool-card">
-            <div class="card-header">
-              <span class="route-tag cool-tag">🌿 COOLEST</span>
-              <span class="metric-time" id="coolTime">-- min</span>
-            </div>
-            <div class="metric-stat">
-              <span class="stat-number" id="coolDist">-- m</span>
-              <span class="stat-label">Cool-Weighted Distance</span>
-            </div>
-            <div class="shade-meter-container">
-              <div class="meter-label">
-                <span>Tree/Building Shade</span>
-                <strong id="coolShadePct" class="highlight-green">--%</strong>
-              </div>
-              <div class="meter-bar">
-                <div class="meter-fill cool-fill" id="coolShadeBar" style="width: 0%"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tradeoff Delta Stats -->
-        <div class="delta-chips">
-          <div class="delta-chip" id="deltaDistChip">
-            <span>Extra Walking:</span> <strong id="deltaDist">+0 m</strong>
-          </div>
-          <div class="delta-chip" id="deltaTimeChip">
-            <span>Detour Time:</span> <strong id="deltaTime">+0.0 min</strong>
-          </div>
-          <div class="delta-chip highlight" id="deltaShadeChip">
-            <span>Extra Shade:</span> <strong id="deltaShade">+0.0%</strong>
-          </div>
-        </div>
-
-        <!-- Day 11: Physiological Heat Strain & Hydration Panel -->
-        <div class="strain-panel" id="heatStrainPanel" style="display:none">
-          <div class="strain-header">
-            <span class="strain-title">💧 Heat Strain & Hydration</span>
-            <span class="strain-badge" id="strainRiskBadge">LOW RISK</span>
-          </div>
-          <div class="strain-grid">
-            <div class="strain-item">
-              <span class="st-label">Sweat Rate</span>
-              <strong class="st-val" id="sweatRateVal">-- mL/h</strong>
-            </div>
-            <div class="strain-item">
-              <span class="st-label">Trip Fluid Loss</span>
-              <strong class="st-val" id="waterLossVal">-- mL</strong>
-            </div>
-            <div class="strain-item">
-              <span class="st-label">Water Shielded</span>
-              <strong class="st-val highlight-green" id="waterSavedVal">-- mL</strong>
-            </div>
-            <div class="strain-item">
-              <span class="st-label">Canopy Pauses</span>
-              <strong class="st-val" id="restStopsVal">-- stops</strong>
-            </div>
-          </div>
-          <div class="strain-advice" id="hydrationAdvice">Stay hydrated during peak sun hours.</div>
-        </div>
-
-        <!-- Day 11: Virtual Walker Simulation HUD -->
-        <div class="sim-panel" id="simulationPanel" style="display:none">
-          <div class="sim-header">
-            <span class="sim-title">🚶 Virtual Walker HUD</span>
-            <div class="sim-speed-pills">
-              <button class="speed-pill active" data-speed="1">1x</button>
-              <button class="speed-pill" data-speed="5">5x</button>
-              <button class="speed-pill" data-speed="15">15x</button>
-            </div>
-          </div>
-          <div class="sim-progress-track">
-            <div class="sim-progress-fill" id="simProgressBar" style="width: 0%"></div>
-          </div>
-          <div class="sim-hud-row">
-            <div class="hud-col"><span class="hud-k">Walked</span><strong class="hud-v" id="hudDistance">0 m</strong></div>
-            <div class="hud-col"><span class="hud-k">Instant Shade</span><strong class="hud-v text-emerald" id="hudShade">--%</strong></div>
-            <div class="hud-col"><span class="hud-k">Solar Flux</span><strong class="hud-v" id="hudSolar">-- W/m²</strong></div>
-            <div class="hud-col"><span class="hud-k">Elapsed</span><strong class="hud-v" id="hudElapsed">00:00</strong></div>
-          </div>
-          <div class="sim-actions">
-            <button class="sim-btn sim-btn-play" id="simPlayBtn">▶ Start Walk</button>
-            <button class="sim-btn sim-btn-reset" id="simResetBtn">⏮ Reset</button>
-          </div>
-        </div>
-
-        <!-- Turn-by-Turn Navigation Steps Accordion -->
-        <div class="steps-container">
-          <div class="steps-nav-header">
-            <button class="accordion-toggle" id="toggleStepsBtn">
-              <span>🚶 Turn-by-Turn Guidance & Advisories</span>
-              <span class="accordion-arrow">▼</span>
-            </button>
-            <div class="step-stepper-btns" id="stepStepperBtns" style="display:none">
-              <button class="step-btn" id="stepPrevBtn" title="Previous Step">◀</button>
-              <span class="step-counter" id="stepCounter">1 / 1</span>
-              <button class="step-btn" id="stepNextBtn" title="Next Step">▶</button>
-            </div>
-          </div>
-          <div class="steps-list" id="stepsList"></div>
-        </div>
-
-
-        <!-- Day 9: Route History -->
-        <div class="history-section">
-          <label class="group-label">Route History (Last 5)</label>
-          <div class="history-list" id="historyList">
-            <div class="history-empty">No routes calculated yet.</div>
-          </div>
-        </div>
-
-        <!-- Day 9: Waypoint Recommendations -->
-        <div class="waypoint-panel" id="waypointPanel">
-          <h4>💡 Smart Waypoint Suggestions</h4>
-          <div id="waypointList"></div>
-        </div>
-        <!-- Export & Share Action -->
-        <div class="export-actions">
-          <button class="action-btn" id="exportGeoJsonBtn">📥 Download GeoJSON</button>
-          <button class="action-btn" id="exportGpxBtn">🗺️ Download GPX Track</button>
-          <button class="action-btn" id="resetPinsBtn">📍 Reset Pins</button>
-          <a class="report-btn" href="/outputs/day14_capstone_report.html" target="_blank" style="background:linear-gradient(135deg, #10b981 0%, #0284c7 100%);color:#fff;font-weight:700;">🏆 14-Day Master Capstone Report</a>
-          <button class="share-btn" id="shareRouteBtn">🔗 Share Route URL</button>
-        </div>
-      </section>
-
-      <!-- Footer -->
-      <footer class="app-footer">
-        <p>Built for Pune Walkers • Days 1 to 14 Production Complete • Dynamic Solar + Tobler Topography + Clean Air + Field PWA</p>
-      </footer>
-    </aside>
-
-    <!-- Map Canvas -->
-    <main class="map-container">
-      <div id="map"></div>
-
-      <!-- Floating Map Legend -->
-      <div class="map-legend">
-        <h4>Navigation Layers</h4>
-        <div class="legend-item">
-          <span class="legend-line fast-line"></span>
-          <span>Fastest Walking Route</span>
-        </div>
-        <div class="legend-item" id="legendBalanced" style="display:none">
-          <span class="legend-line bal-line"></span>
-          <span>Balanced (Cool + Safe)</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-line cool-line"></span>
-          <span>Coolest Shaded Route</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-box boundary-box"></span>
-          <span>Pune Pilot Bounding Box</span>
-        </div>
-        <p class="legend-tip">💡 Tip: Click anywhere inside the box to set custom Start / End pins!</p>
+  <!-- Google Maps Top Turn-by-Turn Navigation Banner (Active during simulation/walking) -->
+  <div class="gmaps-nav-banner" id="gmapsNavBanner" style="display: none;">
+    <div class="nav-banner-left">
+      <div class="nav-turn-icon" id="navTurnIcon">↰</div>
+      <div class="nav-instruction">
+        <div class="nav-main-text" id="navMainText">In 120m, turn left onto Bhandarkar Rd</div>
+        <div class="nav-sub-text" id="navSubText">Deep Tree Canopy • 85% Shaded • Low Exhaust</div>
       </div>
-    </main>
+    </div>
+    <div class="nav-banner-right">
+      <div class="nav-metric-pill">
+        <span class="nav-metric-lbl">Remaining</span>
+        <strong id="navRemaining">1.2 km • 14 min</strong>
+      </div>
+      <button class="nav-close-btn" id="navCloseBtn" title="Exit Navigation">✕</button>
+    </div>
+  </div>
 
+  <!-- Google Maps Floating Search & Directions Card (Top-Left) -->
+  <aside class="gmaps-floating-card" id="sidebar">
+
+    <!-- Card Header / Brand Bar -->
+    <div class="gmaps-card-header">
+      <div class="gmaps-brand">
+        <div class="gmaps-brand-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#1a73e8"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        </div>
+        <div>
+          <h1 class="gmaps-title">Pune Cooler Routes</h1>
+          <p class="gmaps-tagline">Shade-Aware Pedestrian Navigation</p>
+        </div>
+      </div>
+      <div class="gmaps-header-actions">
+        <span class="gmaps-status-chip" id="networkStatus">● 3,971 Nodes</span>
+        <button class="gmaps-toggle-btn" id="togglePanelBtn" title="Collapse Panel">◀</button>
+      </div>
+    </div>
+
+    <!-- Transport Mode Pills (Google Maps style) -->
+    <div class="gmaps-mode-selector">
+      <button class="gmaps-mode-pill active" id="modeWalk">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>
+        <span>Walking</span>
+      </button>
+      <button class="gmaps-mode-pill" id="modeCool">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zm-1-6h2v2h-2v-2zm0-8h2v6h-2V8z"/></svg>
+        <span>Max Cool</span>
+      </button>
+      <button class="gmaps-mode-pill" id="modeBicycle">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M15.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5zm14-8.5c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5zm-5.2-12l-1.9 3.5 1.8 1.8 2.2-3.3h3.1V5h-5.2zm-2.8 5.7L8.9 9H5v2h2.6l1.7 3.3-1.6 2.7H9l1.6-2.8 2.1 2.1c.4.4.9.7 1.5.7h3.8v-2h-3.3l-1.5-1.5 1.2-2.1c.3-.5.2-1.1-.1-1.6l-1.8-2.1z"/></svg>
+        <span>Cycle</span>
+      </button>
+    </div>
+
+    <!-- Direction Inputs Box (Classic Google Maps Origin/Destination) -->
+    <div class="gmaps-inputs-container">
+      <div class="gmaps-pin-column">
+        <div class="gmaps-dot start-dot"></div>
+        <div class="gmaps-connector-line"></div>
+        <div class="gmaps-pin dest-pin">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="#ea4335"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        </div>
+      </div>
+      <div class="gmaps-fields-column">
+        <div class="gmaps-input-wrapper">
+          <select id="startSelect" class="gmaps-input" title="Choose Starting Location"></select>
+        </div>
+        <div class="gmaps-input-wrapper">
+          <select id="destSelect" class="gmaps-input" title="Choose Destination Location"></select>
+        </div>
+      </div>
+      <button class="gmaps-swap-btn" id="swapLocationsBtn" title="Reverse starting point and destination">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="#5f6368"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
+      </button>
+    </div>
+
+    <!-- Popular Presets & GPS Location Chip -->
+    <div class="gmaps-chips-row" id="presetChips">
+      <button class="gmaps-chip gps-chip" id="locateMeBtn">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="#1a73e8"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-7-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+        <span>Your location</span>
+      </button>
+      <button class="gmaps-chip active" data-from="mit_wpu" data-to="fergusson">MIT ➔ Fergusson</button>
+      <button class="gmaps-chip" data-from="deccan" data-to="ils_law">Deccan ➔ ILS</button>
+      <button class="gmaps-chip" data-from="bmcc" data-to="sambhaji_park">BMCC ➔ Sambhaji</button>
+      <button class="gmaps-chip" data-from="kamla_nehru" data-to="fc_market">Prabhat ➔ FC Mkt</button>
+    </div>
+
+    <!-- Departure Sun & Solar Controls Accordion -->
+    <div class="gmaps-sun-section">
+      <div class="gmaps-sun-header">
+        <span class="gmaps-sun-icon">☀️</span>
+        <span class="gmaps-sun-title">Solar Departure Time</span>
+        <span class="gmaps-sun-badge" id="timeLabel">13:00 Midday Sun</span>
+      </div>
+      <div class="gmaps-sun-pills">
+        <button class="gmaps-time-pill" data-hour="9">09:00<br><small>Morning</small></button>
+        <button class="gmaps-time-pill active" data-hour="13">13:00<br><small>Peak Heat</small></button>
+        <button class="gmaps-time-pill" data-hour="16">16:00<br><small>Afternoon</small></button>
+        <button class="gmaps-time-pill" data-hour="live">Live<br><small>Clock</small></button>
+      </div>
+      <div class="gmaps-custom-time">
+        <label for="customTimeInput">Exact Departure:</label>
+        <input type="time" id="customTimeInput" value="13:00" class="gmaps-time-input">
+      </div>
+    </div>
+
+    <!-- Hidden / Advanced Controls Container -->
+    <div class="gmaps-advanced-toggle" id="advancedToggle">
+      <span>⚙️ Routing Preferences</span>
+      <span class="gmaps-chevron">▼</span>
+    </div>
+    <div class="gmaps-advanced-panel" id="advancedPanel" style="display: none;">
+      <div class="gmaps-setting-row">
+        <label class="gmaps-setting-lbl">Routing Algorithm</label>
+        <div class="gmaps-mode-btn-group" id="modeToggle">
+          <button class="mode-btn" data-mode="standard" id="modeStandard">Standard</button>
+          <button class="mode-btn" data-mode="balanced" id="modeBalanced">Balanced</button>
+          <button class="mode-btn active" data-mode="dynamic" id="modeDynamic">Dynamic Sun</button>
+        </div>
+      </div>
+      <div class="gmaps-setting-row">
+        <div class="gmaps-slider-hdr">
+          <label class="gmaps-setting-lbl" for="coolnessSlider">Shade Preference Multiplier</label>
+          <span id="coolnessVal" class="gmaps-slider-val">2.5x</span>
+        </div>
+        <input type="range" id="coolnessSlider" min="1.0" max="5.0" step="0.5" value="2.5" class="gmaps-slider">
+      </div>
+    </div>
+
+    <!-- Calculate Routes Primary Button (Google Blue) -->
+    <button id="findRoutesBtn" class="gmaps-primary-action-btn">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+      <span>Find Cooler Routes</span>
+    </button>
+
+    <!-- Scrollable Results Section (Google Maps Route Options) -->
+    <div class="gmaps-results-container" id="resultsSection" style="display: none;">
+
+      <!-- Google Maps Route Options List -->
+      <div class="gmaps-route-cards-list" id="metricsGrid">
+
+        <!-- 1. Coolest Route (Recommended - Highlighted) -->
+        <div class="gmaps-route-card cool-route-card active" id="coolestRouteCard">
+          <div class="gmaps-rc-header">
+            <span class="gmaps-rc-badge rec-badge">🌿 BEST SHADED ROUTE</span>
+            <span class="gmaps-rc-time text-green" id="coolTime">19 min</span>
+          </div>
+          <div class="gmaps-rc-details">
+            <span class="gmaps-rc-dist" id="coolDist">1.6 km</span>
+            <span class="gmaps-rc-bullet">•</span>
+            <span class="gmaps-rc-shade text-green"><strong id="coolShadePct">65%</strong> in Shade</span>
+          </div>
+          <div class="gmaps-rc-summary">via Prabhat Rd tree canopy • Avoids steep hill climbs & Karve Rd exhaust</div>
+          <div class="gmaps-shade-meter">
+            <div class="gmaps-shade-bar cool-bar" id="coolShadeBar" style="width: 65%;"></div>
+          </div>
+          <div class="gmaps-rc-actions">
+            <button class="gmaps-btn-start" id="startCoolNavBtn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <span>Start Navigation</span>
+            </button>
+            <button class="gmaps-btn-preview" id="previewCoolStepsBtn">Turn Details</button>
+          </div>
+        </div>
+
+        <!-- 2. Balanced Route Card -->
+        <div class="gmaps-route-card bal-route-card" id="balancedCard">
+          <div class="gmaps-rc-header">
+            <span class="gmaps-rc-badge bal-badge">🛡️ BALANCED</span>
+            <span class="gmaps-rc-time text-purple" id="balTime">18 min</span>
+          </div>
+          <div class="gmaps-rc-details">
+            <span class="gmaps-rc-dist" id="balDist">1.5 km</span>
+            <span class="gmaps-rc-bullet">•</span>
+            <span class="gmaps-rc-shade text-purple"><strong id="balShadePct">48%</strong> Shade</span>
+          </div>
+          <div class="gmaps-rc-summary">Moderate detour • Safe sidewalks & partial canopy</div>
+          <div class="gmaps-shade-meter">
+            <div class="gmaps-shade-bar bal-bar" id="balShadeBar" style="width: 48%;"></div>
+          </div>
+        </div>
+
+        <!-- 3. Fastest Route Card -->
+        <div class="gmaps-route-card fast-route-card" id="fastestRouteCard">
+          <div class="gmaps-rc-header">
+            <span class="gmaps-rc-badge fast-badge">⚡ FASTEST (DIRECT)</span>
+            <span class="gmaps-rc-time text-orange" id="fastTime">17 min</span>
+          </div>
+          <div class="gmaps-rc-details">
+            <span class="gmaps-rc-dist" id="fastDist">1.4 km</span>
+            <span class="gmaps-rc-bullet">•</span>
+            <span class="gmaps-rc-shade text-orange"><strong id="fastShadePct">21%</strong> Shade</span>
+          </div>
+          <div class="gmaps-rc-summary text-faint">Direct path via Karve Rd • High heat radiation & traffic exhaust</div>
+          <div class="gmaps-shade-meter">
+            <div class="gmaps-shade-bar fast-bar" id="fastShadeBar" style="width: 21%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tradeoff Delta Banner -->
+      <div class="gmaps-tradeoff-strip" id="tradeoffCard">
+        <div class="tradeoff-icon">☀️</div>
+        <div class="tradeoff-content">
+          <div class="tradeoff-badge" id="tradeoffBadge">HEAT RELIEF SUMMARY</div>
+          <div class="tradeoff-title" id="tradeoffVerdict">Taking the cool route adds just 2 mins but saves 44% direct sun exposure!</div>
+          <div class="delta-chips">
+            <span class="delta-chip" id="deltaDistChip">Extra Walk: <strong id="deltaDist">+200 m</strong></span>
+            <span class="delta-chip" id="deltaTimeChip">Detour: <strong id="deltaTime">+2.1 min</strong></span>
+            <span class="delta-chip highlight" id="deltaShadeChip">Extra Shade: <strong id="deltaShade">+44%</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thermal Comfort & Environmental Health -->
+      <div class="gmaps-env-box" id="thermalPanel">
+        <div class="env-item">
+          <span class="env-icon">🌡️</span>
+          <div>
+            <div class="env-lbl">Apparent Temp Relief</div>
+            <div class="env-val text-green" id="thermalRelief">-3.8 °C</div>
+          </div>
+        </div>
+        <div class="env-item">
+          <span class="env-icon">🛡️</span>
+          <div>
+            <div class="env-lbl">Direct Solar Heat Avoided</div>
+            <div class="env-val text-blue" id="heatAvoided">450 W/m²</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Biometeorological Heat Strain & Hydration Panel (Day 11) -->
+      <div class="gmaps-strain-box" id="heatStrainPanel">
+        <div class="strain-header">
+          <span class="strain-title">💧 Hydration & Exertion</span>
+          <span class="strain-badge" id="strainRiskBadge">MILD HEAT STRAIN</span>
+        </div>
+        <div class="strain-metrics-row">
+          <div class="st-cell"><span class="st-k">Sweat Rate</span><strong id="sweatRateVal">285 mL/h</strong></div>
+          <div class="st-cell"><span class="st-k">Total Fluid Loss</span><strong id="waterLossVal">92 mL</strong></div>
+          <div class="st-cell"><span class="st-k">Water Saved</span><strong class="text-green" id="waterSavedVal">+32 mL</strong></div>
+          <div class="st-cell"><span class="st-k">Canopy Pauses</span><strong id="restStopsVal">1 stop</strong></div>
+        </div>
+        <div class="strain-advice" id="hydrationAdvice">Tree canopy routes lower cardiovascular strain and prevent acute fluid deficit.</div>
+      </div>
+
+      <!-- Virtual Walker HUD Simulation Drawer (Day 11) -->
+      <div class="gmaps-sim-box" id="simulationPanel">
+        <div class="sim-header">
+          <span class="sim-title">🚶 Pedestrian Navigation HUD</span>
+          <div class="sim-speed-pills">
+            <button class="speed-pill active" data-speed="1">1x</button>
+            <button class="speed-pill" data-speed="5">5x</button>
+            <button class="speed-pill" data-speed="15">15x</button>
+          </div>
+        </div>
+        <div class="sim-progress-track">
+          <div class="sim-progress-fill" id="simProgressBar" style="width: 0%;"></div>
+        </div>
+        <div class="sim-hud-row">
+          <div class="hud-col"><span class="hud-k">Walked</span><strong id="hudDistance">0 m</strong></div>
+          <div class="hud-col"><span class="hud-k">Street Shade</span><strong class="text-green" id="hudShade">--%</strong></div>
+          <div class="hud-col"><span class="hud-k">Solar Flux</span><strong id="hudSolar">-- W/m²</strong></div>
+          <div class="hud-col"><span class="hud-k">Elapsed</span><strong id="hudElapsed">00:00</strong></div>
+        </div>
+        <div class="sim-actions">
+          <button class="gmaps-btn-primary" id="simPlayBtn">▶ Start Walk</button>
+          <button class="gmaps-btn-secondary" id="simResetBtn">⏮ Reset</button>
+        </div>
+      </div>
+
+      <!-- Turn-by-Turn Navigation Steps (Google Maps Directions List) -->
+      <div class="gmaps-steps-box">
+        <div class="gmaps-steps-header">
+          <button class="gmaps-accordion-btn" id="toggleStepsBtn">
+            <span>🚶 Turn-by-Turn Directions & Shade Advisories</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="step-stepper-btns" id="stepStepperBtns" style="display:none">
+            <button class="step-btn" id="stepPrevBtn" title="Previous Step">◀</button>
+            <span class="step-counter" id="stepCounter">1 / 1</span>
+            <button class="step-btn" id="stepNextBtn" title="Next Step">▶</button>
+          </div>
+        </div>
+        <div class="steps-list" id="stepsList"></div>
+      </div>
+
+      <!-- Smart Waypoint Suggestions (Day 9) -->
+      <div class="gmaps-waypoint-box" id="waypointPanel">
+        <h4 class="gmaps-subhdr">💡 Intermediate Cool Stops & Water Points</h4>
+        <div id="waypointList"></div>
+      </div>
+
+      <!-- Route History (Day 9) -->
+      <div class="gmaps-history-box">
+        <div class="gmaps-subhdr">Recent Routes</div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty">No routes calculated yet.</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons (GPX, GeoJSON, Share, Capstone Report) -->
+      <div class="gmaps-export-row">
+        <button class="gmaps-tool-btn" id="exportGpxBtn">🗺️ Download GPX</button>
+        <button class="gmaps-tool-btn" id="exportGeoJsonBtn">📥 GeoJSON</button>
+        <button class="gmaps-tool-btn" id="resetPinsBtn">📍 Reset</button>
+        <button class="gmaps-tool-btn" id="shareRouteBtn">🔗 Share</button>
+      </div>
+      <div class="gmaps-capstone-cta">
+        <a class="gmaps-capstone-link" href="/outputs/day14_capstone_report.html" target="_blank">
+          🏆 View 14-Day Master Capstone Report & Research Analytics ➔
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Panel Footer -->
+    <footer class="gmaps-card-footer">
+      <span>Pune Pedestrian Navigator • Pilot Zone (Kothrud to FC Rd)</span>
+    </footer>
+  </aside>
+
+  <!-- Google Maps Floating Layers Switcher (Bottom-Left) -->
+  <div class="gmaps-layer-control" id="layerControl">
+    <button class="gmaps-layer-trigger" id="layerTriggerBtn" title="Switch Basemap Style">
+      <div class="layer-thumb-preview" id="layerThumbPreview"></div>
+      <span>Layers</span>
+    </button>
+    <div class="gmaps-layer-popover" id="layerPopover" style="display: none;">
+      <div class="layer-popover-title">Map Type</div>
+      <div class="layer-options-grid">
+        <div class="layer-option active" data-layer="streets">
+          <div class="layer-sample sample-streets"></div>
+          <span>Default</span>
+        </div>
+        <div class="layer-option" data-layer="satellite">
+          <div class="layer-sample sample-satellite"></div>
+          <span>Satellite</span>
+        </div>
+        <div class="layer-option" data-layer="terrain">
+          <div class="layer-sample sample-terrain"></div>
+          <span>Terrain</span>
+        </div>
+        <div class="layer-option" data-layer="humanitarian">
+          <div class="layer-sample sample-humanitarian"></div>
+          <span>Walking</span>
+        </div>
+      </div>
+      <div class="layer-popover-divider"></div>
+      <div class="layer-popover-title">Map Overlays</div>
+      <div class="layer-switch-row" id="toggleHeatmapRow">
+        <span>🌡️ Street Shade Heatmap</span>
+        <input type="checkbox" id="heatmapToggle" class="gmaps-switch">
+      </div>
+      <div class="layer-switch-row" id="toggleIsochroneRow">
+        <span>⏱️ 5/10/15-min Isochrones</span>
+        <input type="checkbox" id="isochroneToggle" class="gmaps-switch">
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Maps Bottom-Right Floating Map Tools -->
+  <div class="gmaps-map-tools">
+    <button class="gmaps-circle-tool" id="recenterBtn" title="Center on Pune Pilot Zone">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="#5f6368"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+    </button>
+    <button class="gmaps-circle-tool" id="locateCrosshairBtn" title="Use Current GPS Location">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="#1a73e8"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-7-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+    </button>
+    <div class="gmaps-zoom-pill">
+      <button class="gmaps-zoom-btn" id="zoomInBtn" title="Zoom in">+</button>
+      <div class="gmaps-zoom-divider"></div>
+      <button class="gmaps-zoom-btn" id="zoomOutBtn" title="Zoom out">−</button>
+    </div>
+  </div>
+
+  <!-- Google Maps Style Route Legend Pill (Bottom-Center) -->
+  <div class="gmaps-legend-pill">
+    <div class="gmaps-legend-item">
+      <span class="legend-dot green-dot"></span>
+      <span>Coolest Shaded Route</span>
+    </div>
+    <div class="gmaps-legend-item" id="legendBalanced" style="display:none">
+      <span class="legend-dot purple-dot"></span>
+      <span>Balanced</span>
+    </div>
+    <div class="gmaps-legend-item">
+      <span class="legend-dot orange-dot"></span>
+      <span>Fastest Direct</span>
+    </div>
+    <div class="gmaps-legend-item">
+      <span class="legend-box orange-box"></span>
+      <span>Pune Pilot Bbox</span>
+    </div>
   </div>
 
   <!-- Leaflet JS -->

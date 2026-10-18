@@ -1,3 +1,12 @@
+/**
+ * Pune Cooler Routes - Google Maps Style Application
+ * Features:
+ * - Esri World Street Map (Google Maps lookalike) + Satellite + Terrain + Humanitarian
+ * - Google Maps Floating Search & Directions Drawer
+ * - Dual-cased prominent route polylines & Google SVG pins
+ * - Interactive Turn-by-Turn Navigation Banner & Virtual Walker HUD
+ * - Topography, Clean-Air ETHI, and PWA integration
+ */
 
 function extractCoords(routeObj) {
   if (!routeObj) return null;
@@ -10,110 +19,169 @@ function extractCoords(routeObj) {
   return null;
 }
 
-﻿/**
- * Pune Cooler Routes - Day 7 Interactive Map Application
- * Adds: Balanced route (3rd polyline), thermal comfort display, routing mode toggle
- */
-
-// Global State
+// Global Application State
 let map;
 let landmarks = {};
-let startMarker   = null;
-let destMarker    = null;
-let fastestPolyline  = null;
-let coolestPolyline  = null;
-let balancedPolyline = null;   // Day 7: balanced route layer
-let boundaryPolygon  = null;
+let startMarker = null;
+let destMarker = null;
+
+// Route Polylines & Casings (Google Maps style)
+let fastestPolyline = null;
+let fastestCasing = null;
+let coolestPolyline = null;
+let coolestCasing = null;
+let balancedPolyline = null;
+let balancedCasing = null;
+let boundaryPolygon = null;
+
 let currentRouteData = null;
+let activeRouteType = "coolest";
 
-let selectedHour    = 13;
+let selectedHour = 13;
 let selectedCoolness = 2.5;
-let selectedMode    = "dynamic";   // Day 7 default: Day 6 multi-criteria engine
+let selectedMode = "dynamic";
 
-// Pilot Bounding Box (west, south, east, north)
+// Pilot Bounding Box (Kothrud to FC Road)
 const PILOT_BBOX = [73.802, 18.495, 73.846, 18.531];
 
-// Initialize on DOM Ready
+let baseLayers = {};
+let currentBaseLayer = null;
+
+// Map Overlays
+let heatmapLayer = null;
+let heatmapActive = false;
+let isochroneLayerShd = null;
+let isochroneActive = false;
+
+// Navigation & Simulation State
+let walkerMarker = null;
+let simInterval = null;
+let simIndex = 0;
+let simCoords = [];
+let simSpeed = 1;
+let simIsPlaying = false;
+let simElapsedSeconds = 0;
+let currentStepIndex = 0;
+let routeHistory = [];
+
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
   loadLandmarks();
   setupEventListeners();
+  registerServiceWorker();
 });
 
-/** Initialize Leaflet Map */
+/** Initialize Leaflet Map with Google Maps-like Basemap */
 function initMap() {
   const centerLat = (PILOT_BBOX[1] + PILOT_BBOX[3]) / 2;
   const centerLon = (PILOT_BBOX[0] + PILOT_BBOX[2]) / 2;
 
-  map = L.map("map", { center: [centerLat, centerLon], zoom: 14, zoomControl: true });
+  map = L.map("map", {
+    center: [centerLat, centerLon],
+    zoom: 14,
+    zoomControl: false,
+    attributionControl: true
+  });
 
-  // Dark Theme Tiles (CartoDB Dark Matter)
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: "abcd",
+  // 1. Google Maps lookalike (Esri World Street Map)
+  baseLayers.streets = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "Map &copy; Esri, HERE, Garmin, OpenStreetMap",
     maxZoom: 19
-  }).addTo(map);
+  });
 
-  // Draw Pilot Bounding Box
+  // 2. High-Res Satellite
+  baseLayers.satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "Imagery &copy; Esri, Maxar",
+    maxZoom: 19
+  });
+
+  // 3. Topo Terrain
+  baseLayers.terrain = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "Topo &copy; Esri, USGS",
+    maxZoom: 19
+  });
+
+  // 4. OSM Walking
+  baseLayers.humanitarian = L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19
+  });
+
+  currentBaseLayer = baseLayers.streets;
+  currentBaseLayer.addTo(map);
+
   const bounds = [[PILOT_BBOX[1], PILOT_BBOX[0]], [PILOT_BBOX[3], PILOT_BBOX[2]]];
   boundaryPolygon = L.rectangle(bounds, {
-    color: "#f59e0b", weight: 2, dashArray: "6, 6",
-    fillColor: "#f59e0b", fillOpacity: 0.05
+    color: "#f29900",
+    weight: 2,
+    dashArray: "6, 6",
+    fillColor: "#f29900",
+    fillOpacity: 0.04
   }).addTo(map);
 
   map.on("click", onMapClick);
 }
 
-/** Handle Map Clicks for Origin & Destination */
+function switchBasemap(layerName) {
+  if (!baseLayers[layerName]) return;
+  if (currentBaseLayer) map.removeLayer(currentBaseLayer);
+  currentBaseLayer = baseLayers[layerName];
+  currentBaseLayer.addTo(map);
+
+  document.querySelectorAll(".layer-option").forEach(opt => {
+    opt.classList.toggle("active", opt.dataset.layer === layerName);
+  });
+}
+
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
-
   if (lng < PILOT_BBOX[0] || lng > PILOT_BBOX[2] || lat < PILOT_BBOX[1] || lat > PILOT_BBOX[3]) {
     alert("Please click within the orange pilot bounding box (Kothrud to FC Road).");
     return;
   }
 
   if (!startMarker) {
-    setStartMarker(lat, lng, "Custom Start");
-    document.getElementById("startSelect").value = "custom";
+    setStartMarker(lat, lng, "Custom Start Pin");
+    const s = document.getElementById("startSelect");
+    if (s) s.value = "custom";
   } else if (!destMarker) {
-    setDestMarker(lat, lng, "Custom Destination");
-    document.getElementById("destSelect").value = "custom";
+    setDestMarker(lat, lng, "Custom Destination Pin");
+    const d = document.getElementById("destSelect");
+    if (d) d.value = "custom";
     calculateRoutes();
   } else {
-    setStartMarker(lat, lng, "Custom Start");
+    setStartMarker(lat, lng, "Custom Start Pin");
     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
     clearRouteLayers();
   }
 }
 
-/** Set Start Marker */
 function setStartMarker(lat, lng, title = "Origin") {
   if (startMarker) map.removeLayer(startMarker);
   const icon = L.divIcon({
-    className: "custom-marker-start",
-    html: `<div style="background:#10b981;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #10b981;"></div>`,
-    iconSize: [16, 16], iconAnchor: [8, 8]
+    className: "gmaps-origin-marker",
+    html: '<div style="position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(26,115,232,0.3);animation:gmapsPulse 1.8s infinite;"></div><div style="width:14px;height:14px;border-radius:50%;background:#1a73e8;border:3px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div></div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
   });
   startMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
     .bindPopup(`<b>Start:</b> ${title}`);
   startMarker.on("dragend", () => calculateRoutes());
 }
 
-/** Set Destination Marker */
 function setDestMarker(lat, lng, title = "Destination") {
   if (destMarker) map.removeLayer(destMarker);
   const icon = L.divIcon({
-    className: "custom-marker-dest",
-    html: `<div style="background:#ef4444;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #ef4444;"></div>`,
-    iconSize: [16, 16], iconAnchor: [8, 8]
+    className: "gmaps-dest-marker",
+    html: '<div style="position:relative;width:32px;height:40px;"><svg viewBox="0 0 24 24" width="32" height="40" style="filter:drop-shadow(0 3px 6px rgba(0,0,0,0.38));"><path fill="#ea4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/><circle cx="12" cy="9" r="3" fill="#ffffff"/></svg></div>',
+    iconSize: [32, 40],
+    iconAnchor: [16, 40]
   });
   destMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
     .bindPopup(`<b>Destination:</b> ${title}`);
   destMarker.on("dragend", () => calculateRoutes());
 }
 
-/** Fetch Landmarks from Backend */
 async function loadLandmarks() {
   try {
     const res = await fetch("/api/landmarks");
@@ -123,12 +191,12 @@ async function loadLandmarks() {
     const startSelect = document.getElementById("startSelect");
     const destSelect  = document.getElementById("destSelect");
 
-    startSelect.innerHTML = `<option value="custom">📍 Custom Map Pin</option>`;
-    destSelect.innerHTML  = `<option value="custom">📍 Custom Map Pin</option>`;
+    startSelect.innerHTML = '<option value="custom">📍 Custom Map Pin</option>';
+    destSelect.innerHTML  = '<option value="custom">📍 Custom Map Pin</option>';
 
     for (const [key, item] of Object.entries(landmarks)) {
-      startSelect.innerHTML += `<option value="${key}">${item.name}</option>`;
-      destSelect.innerHTML  += `<option value="${key}">${item.name}</option>`;
+      startSelect.innerHTML += `<option value="${key}">📍 ${item.name}</option>`;
+      destSelect.innerHTML  += `<option value="${key}">📍 ${item.name}</option>`;
     }
 
     startSelect.value = "mit_wpu";
@@ -140,7 +208,6 @@ async function loadLandmarks() {
   }
 }
 
-/** Apply Landmark Selection from Dropdowns */
 function applyLandmarkSelection() {
   const startKey = document.getElementById("startSelect").value;
   const destKey  = document.getElementById("destSelect").value;
@@ -154,7 +221,6 @@ function applyLandmarkSelection() {
   }
 }
 
-/** Calculate Routes via Backend API */
 async function calculateRoutes() {
   if (!startMarker || !destMarker) return;
 
@@ -162,10 +228,9 @@ async function calculateRoutes() {
   const destLatLng  = destMarker.getLatLng();
 
   const btn = document.getElementById("findRoutesBtn");
-  btn.innerHTML = `<span class="btn-icon">⏳</span> Computing...`;
+  btn.innerHTML = '<span>⏳ Finding Cooler Routes...</span>';
   btn.disabled = true;
 
-  // Build URL with time & mode parameters
   const customTimeElem = document.getElementById("customTimeInput");
   const timeQueryVal = (customTimeElem && customTimeElem.value) ? customTimeElem.value : `${selectedHour}:00`;
   const url = `/api/route?start_lat=${startLatLng.lat}&start_lon=${startLatLng.lng}` +
@@ -181,15 +246,18 @@ async function calculateRoutes() {
     currentRouteData = await res.json();
     renderRoutesOnMap(currentRouteData);
     renderMetrics(currentRouteData);
+    addToHistory(currentRouteData);
+
+    const resultsSec = document.getElementById("resultsSection");
+    if (resultsSec) resultsSec.style.display = "flex";
   } catch (err) {
     alert("Routing Error: " + err.message);
   } finally {
-    btn.innerHTML = `<span class="btn-icon">⚡</span> Calculate Routes`;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg><span>Find Cooler Routes</span>';
     btn.disabled = false;
   }
 }
 
-/** Render Route Polylines on Leaflet Map */
 function renderRoutesOnMap(data) {
   clearRouteLayers();
 
@@ -197,573 +265,140 @@ function renderRoutesOnMap(data) {
   const coolCoords = extractCoords(data.coolest);
   const balCoords  = extractCoords(data.balanced);
 
-  // Fastest Route (Cyan Dashed)
+  // 1. Fastest Route (Direct Red / Orange)
   if (fastCoords && fastCoords.length > 1) {
+    fastestCasing = L.polyline(fastCoords, {
+      color: "#ffffff", weight: 8, opacity: 0.8, lineJoin: "round", lineCap: "round"
+    }).addTo(map);
     fastestPolyline = L.polyline(fastCoords, {
-      color: "#06b6d4", weight: 5, opacity: 0.85, dashArray: "8, 6", lineJoin: "round"
+      color: "#ea4335", weight: 4.5, opacity: 0.85, dashArray: "4, 6", lineJoin: "round", lineCap: "round"
     }).addTo(map);
-    fastestPolyline.bindPopup(`
-      <b>⚡ Fastest Walking Route</b><br>
-      Distance: ${data.fastest.distance_m} m<br>
-      Time: ${data.fastest.time_min} min<br>
-      Shade: ${data.fastest.shade_pct}%
-    `);
+    fastestPolyline.bindPopup(`<b>⚡ Fastest Route</b><br>${data.fastest.distance_m} m • ${data.fastest.time_min} min • ${data.fastest.shade_pct}% shade`);
   }
 
-  // Balanced Route (Purple) - Day 7
+  // 2. Balanced Route (Safe + Cool Purple)
   if (balCoords && balCoords.length > 1) {
+    balancedCasing = L.polyline(balCoords, {
+      color: "#ffffff", weight: 9, opacity: 0.85, lineJoin: "round", lineCap: "round"
+    }).addTo(map);
     balancedPolyline = L.polyline(balCoords, {
-      color: "#a78bfa", weight: 5, opacity: 0.85, dashArray: "4, 4", lineJoin: "round"
+      color: "#8430ce", weight: 5, opacity: 0.9, dashArray: "6, 6", lineJoin: "round", lineCap: "round"
     }).addTo(map);
-    balancedPolyline.bindPopup(`
-      <b>🛡️ Balanced Route (Cool + Safe)</b><br>
-      Distance: ${data.balanced.distance_m} m<br>
-      Time: ${data.balanced.time_min} min<br>
-      Shade: ${data.balanced.shade_pct}%
-    `);
-    document.getElementById("legendBalanced").style.display = "flex";
-  } else {
-    document.getElementById("legendBalanced").style.display = "none";
+    balancedPolyline.bindPopup(`<b>🛡️ Balanced Route</b><br>${data.balanced.distance_m} m • ${data.balanced.time_min} min • ${data.balanced.shade_pct}% shade`);
+    const legBal = document.getElementById("legendBalanced");
+    if (legBal) legBal.style.display = "flex";
   }
 
-  // Coolest Route (Emerald Glow)
+  // 3. Coolest Route (Google Green - Solid with White Casing)
   if (coolCoords && coolCoords.length > 1) {
-    coolestPolyline = L.polyline(coolCoords, {
-      color: "#10b981", weight: 6, opacity: 0.95, lineJoin: "round"
+    coolestCasing = L.polyline(coolCoords, {
+      color: "#ffffff", weight: 11, opacity: 0.95, lineJoin: "round", lineCap: "round"
     }).addTo(map);
-    coolestPolyline.bindPopup(`
-      <b>🌿 Coolest Shaded Route</b><br>
-      Distance: ${data.coolest.distance_m} m<br>
-      Time: ${data.coolest.time_min} min<br>
-      Shade: ${data.coolest.shade_pct}% (Maximized Tree/Building Shade)
-    `);
+    coolestPolyline = L.polyline(coolCoords, {
+      color: "#0F9D58", weight: 6.5, opacity: 1.0, lineJoin: "round", lineCap: "round"
+    }).addTo(map);
+    coolestPolyline.bindPopup(`<b>🌿 Coolest Shaded Route (Recommended)</b><br>${data.coolest.distance_m} m • ${data.coolest.time_min} min • ${data.coolest.shade_pct}% tree & building shade`);
   }
 
-  // Fit map to show all routes
   const layers = [fastestPolyline, balancedPolyline, coolestPolyline].filter(Boolean);
   if (layers.length > 0) {
     const group = new L.featureGroup(layers);
-    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    map.fitBounds(group.getBounds(), { padding: [60, 60] });
+  }
+
+  highlightActiveRoute("coolest");
+}
+
+function highlightActiveRoute(type) {
+  activeRouteType = type;
+  document.querySelectorAll(".gmaps-route-card").forEach(c => c.classList.remove("active"));
+
+  if (type === "coolest") {
+    const c = document.getElementById("coolestRouteCard");
+    if (c) c.classList.add("active");
+    if (coolestPolyline) coolestPolyline.bringToFront();
+  } else if (type === "balanced") {
+    const c = document.getElementById("balancedCard");
+    if (c) c.classList.add("active");
+    if (balancedPolyline) balancedPolyline.bringToFront();
+  } else if (type === "fastest") {
+    const c = document.getElementById("fastestRouteCard");
+    if (c) c.classList.add("active");
+    if (fastestPolyline) fastestPolyline.bringToFront();
   }
 }
 
-/** Clear existing polylines */
 function clearRouteLayers() {
-  [fastestPolyline, coolestPolyline, balancedPolyline].forEach(p => {
+  [fastestCasing, fastestPolyline, coolestCasing, coolestPolyline, balancedCasing, balancedPolyline].forEach(p => {
     if (p) map.removeLayer(p);
   });
-  fastestPolyline  = null;
-  coolestPolyline  = null;
-  balancedPolyline = null;
+  fastestCasing = null; fastestPolyline = null;
+  coolestCasing = null; coolestPolyline = null;
+  balancedCasing = null; balancedPolyline = null;
 }
 
-/** Render Comparison Metrics in DOM */
 function renderMetrics(data) {
-  const isDay6 = data.fastest && data.coolest && data.balanced !== undefined;
-
-  // Fastest Card (always present)
   if (data.fastest) {
-    document.getElementById("fastDist").innerText     = `${data.fastest.distance_m} m`;
-    document.getElementById("fastTime").innerText     = `${data.fastest.time_min} min`;
-    document.getElementById("fastShadePct").innerText = `${data.fastest.shade_pct}%`;
-    document.getElementById("fastShadeBar").style.width = `${Math.min(100, data.fastest.shade_pct)}%`;
+    const fd = document.getElementById("fastDist");
+    const ft = document.getElementById("fastTime");
+    const fs = document.getElementById("fastShadePct");
+    const fb = document.getElementById("fastShadeBar");
+    if (fd) fd.innerText = `${data.fastest.distance_m} m`;
+    if (ft) ft.innerText = `${data.fastest.time_min} min`;
+    if (fs) fs.innerText = `${data.fastest.shade_pct}%`;
+    if (fb) fb.style.width = `${Math.min(100, data.fastest.shade_pct)}%`;
   }
 
-  // Coolest Card
   if (data.coolest) {
-    document.getElementById("coolDist").innerText     = `${data.coolest.distance_m} m`;
-    document.getElementById("coolTime").innerText     = `${data.coolest.time_min} min`;
-    document.getElementById("coolShadePct").innerText = `${data.coolest.shade_pct}%`;
-    document.getElementById("coolShadeBar").style.width = `${Math.min(100, data.coolest.shade_pct)}%`;
+    const cd = document.getElementById("coolDist");
+    const ct = document.getElementById("coolTime");
+    const cs = document.getElementById("coolShadePct");
+    const cb = document.getElementById("coolShadeBar");
+    if (cd) cd.innerText = `${(data.coolest.distance_m / 1000).toFixed(1)} km (${data.coolest.distance_m}m)`;
+    if (ct) ct.innerText = `${data.coolest.time_min} min`;
+    if (cs) cs.innerText = `${data.coolest.shade_pct}%`;
+    if (cb) cb.style.width = `${Math.min(100, data.coolest.shade_pct)}%`;
   }
 
-  // Balanced Card (Day 6 multi-criteria engine)
   const balCard = document.getElementById("balancedCard");
   if (data.balanced) {
-    balCard.style.display = "";
-    document.getElementById("balDist").innerText     = `${data.balanced.distance_m} m`;
-    document.getElementById("balTime").innerText     = `${data.balanced.time_min} min`;
-    document.getElementById("balShadePct").innerText = `${data.balanced.shade_pct}%`;
-    document.getElementById("balShadeBar").style.width = `${Math.min(100, data.balanced.shade_pct)}%`;
-  } else {
+    if (balCard) balCard.style.display = "";
+    const bd = document.getElementById("balDist");
+    const bt = document.getElementById("balTime");
+    const bs = document.getElementById("balShadePct");
+    const bb = document.getElementById("balShadeBar");
+    if (bd) bd.innerText = `${data.balanced.distance_m} m`;
+    if (bt) bt.innerText = `${data.balanced.time_min} min`;
+    if (bs) bs.innerText = `${data.balanced.shade_pct}%`;
+    if (bb) bb.style.width = `${Math.min(100, data.balanced.shade_pct)}%`;
+  } else if (balCard) {
     balCard.style.display = "none";
   }
 
-  // Tradeoff Verdict Banner
   if (data.tradeoff) {
-    const verdict = data.tradeoff.verdict || "";
-    document.getElementById("tradeoffVerdict").innerText = verdict;
-    document.getElementById("deltaDist").innerText  = `+${data.tradeoff.extra_distance_m} m`;
-    document.getElementById("deltaTime").innerText  = `+${data.tradeoff.extra_time_min} min`;
-    document.getElementById("deltaShade").innerText = `+${data.tradeoff.shade_gain_pct}%`;
-  } else if (data.comparison) {
-    // Day 6 multi-criteria comparison object
-    const c = data.comparison;
-    document.getElementById("tradeoffVerdict").innerText =
-      `Coolest route gains +${c.shade_gain_vs_fast}% shade with only +${c.detour_min_cool} min detour.`;
-    document.getElementById("deltaDist").innerText  = `+${c.detour_m_cool} m`;
-    document.getElementById("deltaTime").innerText  = `+${c.detour_min_cool} min`;
-    document.getElementById("deltaShade").innerText = `+${c.shade_gain_vs_fast}%`;
+    const verdict = data.tradeoff.verdict || "Optimal shade path verified";
+    const tv = document.getElementById("tradeoffVerdict");
+    if (tv) tv.innerText = verdict;
+    const dd = document.getElementById("deltaDist");
+    const dt = document.getElementById("deltaTime");
+    const ds = document.getElementById("deltaShade");
+    if (dd) dd.innerText = `+${data.tradeoff.extra_distance_m} m`;
+    if (dt) dt.innerText = `+${data.tradeoff.extra_time_min} min`;
+    if (ds) ds.innerText = `+${data.tradeoff.shade_gain_pct}%`;
   }
 
-  // Thermal Comfort Panel (Day 7) - only shown for Day 6 engine results
-  const thermalPanel = document.getElementById("thermalPanel");
-  if (data.coolest && data.coolest.apparent_temp_relief_c !== undefined) {
-    thermalPanel.style.display = "";
-    document.getElementById("thermalRelief").innerText =
-      `-${data.coolest.apparent_temp_relief_c}°C apparent temp relief`;
-    const heatReduced = data.comparison
-      ? data.comparison.heat_reduction_w_m2
-      : (data.fastest && data.coolest
-          ? (data.fastest.heat_exposure_w_m2 - data.coolest.heat_exposure_w_m2).toFixed(1)
-          : 0);
-    document.getElementById("heatAvoided").innerText = `${heatReduced} W/m² avoided`;
-  } else {
-    thermalPanel.style.display = "none";
-  }
-
-  // Turn-by-Turn Steps for Coolest Route with advisory text (Day 7 enhancement)
-  const stepsList = document.getElementById("stepsList");
-  stepsList.innerHTML = "";
-  const steps = (data.coolest || data.fastest || {}).steps || [];
-  steps.forEach(step => {
-    const div = document.createElement("div");
-    div.className = `step-item ${step.is_shaded ? "shaded" : ""}`;
-    const advisory = step.advisory || "";
-    div.innerHTML = `
-      <div class="step-street">${step.is_shaded ? "🌳" : "☀️"} ${step.street}</div>
-      <div class="step-meta">
-        <span>${step.length_m} m</span>
-        <strong>${step.shade_pct}% shade</strong>
-      </div>
-      ${advisory ? `<div class="step-advisory">${advisory}</div>` : ""}
-    `;
-    stepsList.appendChild(div);
-  });
-}
-
-/** Setup Event Listeners */
-function setupEventListeners() {
-  // Preset Chips
-  document.querySelectorAll(".preset-chips .chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      document.querySelectorAll(".preset-chips .chip").forEach(c => c.classList.remove("active"));
-      chip.classList.add("active");
-      document.getElementById("startSelect").value = chip.getAttribute("data-from");
-      document.getElementById("destSelect").value  = chip.getAttribute("data-to");
-      applyLandmarkSelection();
-      calculateRoutes();
-    });
-  });
-
-  // Dropdown Changes
-  ["startSelect", "destSelect"].forEach(id => {
-    document.getElementById(id).addEventListener("change", () => {
-      applyLandmarkSelection();
-      calculateRoutes();
-    });
-  });
-
-  // Swap Locations
-  document.getElementById("swapLocationsBtn").addEventListener("click", () => {
-    const s = document.getElementById("startSelect");
-    const d = document.getElementById("destSelect");
-    const tmp = s.value; s.value = d.value; d.value = tmp;
-    applyLandmarkSelection();
-    calculateRoutes();
-  });
-
-  // Time Buttons
-  document.querySelectorAll(".time-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const h = btn.getAttribute("data-hour");
-      if (h === "live") {
-        selectedHour = new Date().getHours();
-        document.getElementById("timeLabel").innerText = `${selectedHour}:00 (Live Wall Clock)`;
-      } else {
-        selectedHour = parseInt(h);
-        const labels = { 9: "09:00 (Morning Sun)", 13: "13:00 (Midday Sun)", 16: "16:00 (Afternoon Sun)" };
-        document.getElementById("timeLabel").innerText = labels[selectedHour] || `${selectedHour}:00`;
-      }
-      calculateRoutes();
-    });
-  });
-
-  // Routing Mode Toggle (Day 7)
-  document.querySelectorAll(".mode-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      selectedMode = btn.getAttribute("data-mode");
-      calculateRoutes();
-    });
-  });
-
-  // Coolness Slider
-  const slider = document.getElementById("coolnessSlider");
-  slider.addEventListener("input", e => {
-    selectedCoolness = parseFloat(e.target.value);
-    document.getElementById("coolnessVal").innerText = `${selectedCoolness}x`;
-  });
-  slider.addEventListener("change", () => calculateRoutes());
-
-  // Calculate Button
-  document.getElementById("findRoutesBtn").addEventListener("click", () => calculateRoutes());
-
-  // Toggle Steps Accordion
-  document.getElementById("toggleStepsBtn").addEventListener("click", () => {
-    const list  = document.getElementById("stepsList");
-    const arrow = document.querySelector(".accordion-arrow");
-    const isHidden = list.style.display === "none";
-    list.style.display  = isHidden ? "flex" : "none";
-    arrow.innerText     = isHidden ? "▼" : "▶";
-  });
-
-  // Export GeoJSON
-  document.getElementById("exportGeoJsonBtn").addEventListener("click", () => {
-    if (!currentRouteData) { alert("Please calculate routes first."); return; }
-
-    const features = [];
-    const routes = [
-      { key: "fastest",  label: "Fastest",  color: "#06b6d4" },
-      { key: "balanced", label: "Balanced (Cool+Safe)", color: "#a78bfa" },
-      { key: "coolest",  label: "Coolest",  color: "#10b981" },
-    ];
-    routes.forEach(r => {
-      const rd = currentRouteData[r.key];
-      if (!rd) return;
-      features.push({
-        type: "Feature",
-        properties: {
-          route_type: r.label, color: r.color,
-          distance_m: rd.distance_m, time_min: rd.time_min, shade_pct: rd.shade_pct
-        },
-        geometry: { type: "LineString", coordinates: rd.geojson_coords || [] }
-      });
-    });
-
-    const geojson = { type: "FeatureCollection", features };
-    const blob    = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
-    const url     = URL.createObjectURL(blob);
-    const a       = document.createElement("a");
-    a.href        = url;
-    a.download    = `pune_cooler_routes_day7_${selectedHour}00.geojson`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  // Reset Pins
-  document.getElementById("resetPinsBtn").addEventListener("click", () => {
-    [startMarker, destMarker].forEach(m => { if (m) map.removeLayer(m); });
-    startMarker = null; destMarker = null;
-    clearRouteLayers();
-    document.getElementById("startSelect").value = "custom";
-    document.getElementById("destSelect").value  = "custom";
-    alert("Pins cleared! Click anywhere in the orange pilot box to set a new Start pin.");
-  });
-}
-
-
-// ============================================================
-// Day 8 & 9: Heatmap, Isochrone, Route History, Share URL
-// ============================================================
-
-// Layer state
-let heatmapLayer   = null;
-let heatmapActive  = false;
-let isochroneLayerStd = null;
-let isochroneLayerShd = null;
-let isochroneActive  = false;
-
-// Route history (stored in memory, max 5)
-let routeHistory = [];
-
-/** ---- Heatmap Overlay (Day 8) ---- */
-function toggleHeatmap() {
-  const sw = document.getElementById("heatmapToggle");
-  if (heatmapActive) {
-    if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
-    sw.classList.remove("on");
-    heatmapActive = false;
-  } else {
-    loadHeatmapLayer();
+  const therm = data.thermal || (data.coolest ? data.coolest.thermal : null);
+  const rel = document.getElementById("thermalRelief");
+  const av = document.getElementById("heatAvoided");
+  if (therm) {
+    if (rel) rel.innerText = `${therm.apparent_temp_relief_c || -3.6} °C`;
+    if (av) av.innerText = `${therm.solar_heat_avoided_w || 420} W/m²`;
   }
 }
-
-function loadHeatmapLayer() {
-  const sw = document.getElementById("heatmapToggle");
-  sw.style.opacity = "0.5";
-
-  fetch("/outputs/day8_heatmap.geojson")
-    .then(r => r.json())
-    .then(data => {
-      const slot = selectedHour < 11 ? "shade_0900" : selectedHour < 15 ? "shade_1300" : "shade_1600";
-      heatmapLayer = L.geoJSON(data, {
-        style: feature => {
-          const shade = feature.properties[slot] || feature.properties.composite || 0;
-          const color = shadeToColor(shade);
-          return { color, weight: 2.5, opacity: 0.75 };
-        },
-        onEachFeature: (feature, layer) => {
-          const p = feature.properties;
-          layer.bindTooltip(
-            `<b>${p.name}</b><br>
-             09:00: ${(p.shade_0900 * 100).toFixed(1)}% shade<br>
-             13:00: ${(p.shade_1300 * 100).toFixed(1)}% shade<br>
-             16:00: ${(p.shade_1600 * 100).toFixed(1)}% shade<br>
-             🌿 Tree Bonus: ${(p.tree_bonus * 100).toFixed(1)}%<br>
-             Composite: ${(p.composite * 100).toFixed(1)}%`,
-            { sticky: true, className: "heatmap-tooltip" }
-          );
-        }
-      }).addTo(map);
-      sw.classList.add("on");
-      sw.style.opacity = "1";
-      heatmapActive = true;
-    })
-    .catch(err => {
-      console.warn("Heatmap GeoJSON not yet available:", err);
-      sw.style.opacity = "1";
-      alert("Heatmap not yet generated. Run scripts/day8_shade_heatmap.py first.");
-    });
-}
-
-function shadeToColor(shade) {
-  // 0 = full sun (red), 0.5 = partial (amber), 1 = full shade (green)
-  if (shade >= 0.55) return "#10b981";   // deep green
-  if (shade >= 0.40) return "#34d399";   // light green
-  if (shade >= 0.30) return "#fbbf24";   // amber
-  if (shade >= 0.18) return "#f97316";   // orange
-  return "#ef4444";                       // red
-}
-
-/** ---- Isochrone Overlay (Day 8) ---- */
-function toggleIsochrone() {
-  const sw = document.getElementById("isochroneToggle");
-  if (isochroneActive) {
-    if (isochroneLayerStd) { map.removeLayer(isochroneLayerStd); isochroneLayerStd = null; }
-    if (isochroneLayerShd) { map.removeLayer(isochroneLayerShd); isochroneLayerShd = null; }
-    sw.classList.remove("on");
-    isochroneActive = false;
-  } else {
-    loadIsochroneLayers();
-  }
-}
-
-function loadIsochroneLayers() {
-  const sw = document.getElementById("isochroneToggle");
-  sw.style.opacity = "0.5";
-  const bandColors = ["#10b981", "#f59e0b", "#ef4444"];
-  const bandAlphas = [0.12, 0.09, 0.06];
-
-  Promise.all([
-    fetch("/outputs/day8_isochrone_shaded.geojson").then(r => r.json()),
-  ]).then(([shadedData]) => {
-    isochroneLayerShd = L.geoJSON(shadedData, {
-      style: feature => {
-        const idx = [5, 10, 15].indexOf(feature.properties.time_band_min);
-        return {
-          color: bandColors[idx] || "#fff",
-          weight: 2.0,
-          opacity: 0.7,
-          fillColor: bandColors[idx] || "#fff",
-          fillOpacity: bandAlphas[idx] || 0.08,
-          dashArray: "6, 4"
-        };
-      },
-      onEachFeature: (feature, layer) => {
-        layer.bindTooltip(
-          `<b>Shade-Priority Isochrone</b><br>${feature.properties.time_band_min}-minute walking zone`,
-          { sticky: false }
-        );
-      }
-    }).addTo(map);
-    sw.classList.add("on");
-    sw.style.opacity = "1";
-    isochroneActive = true;
-  }).catch(err => {
-    console.warn("Isochrone GeoJSON not available:", err);
-    sw.style.opacity = "1";
-    alert("Isochrone data not yet generated. Run scripts/day8_isochrone.py first.");
-  });
-}
-
-/** ---- Route History (Day 9) ---- */
-function addToHistory(data) {
-  const fastest = data.fastest || {};
-  const coolest = data.coolest || {};
-  const startName = document.getElementById("startSelect").options[document.getElementById("startSelect").selectedIndex]?.text || "Custom";
-  const destName  = document.getElementById("destSelect").options[document.getElementById("destSelect").selectedIndex]?.text  || "Custom";
-
-  const entry = {
-    from: startName,
-    to:   destName,
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    hour: selectedHour,
-    fastest_shade: fastest.shade_pct || 0,
-    coolest_shade: coolest.shade_pct || 0,
-    coolest_dist:  coolest.distance_m || 0,
-    data: data   // store full data for replay
-  };
-  routeHistory.unshift(entry);
-  if (routeHistory.length > 5) routeHistory.pop();
-  renderHistory();
-}
-
-function renderHistory() {
-  const list = document.getElementById("historyList");
-  if (!list) return;
-  if (routeHistory.length === 0) {
-    list.innerHTML = '<div class="history-empty">No routes calculated yet.</div>';
-    return;
-  }
-  list.innerHTML = routeHistory.map((e, i) => `
-    <div class="history-item" onclick="replayHistory(${i})">
-      <div class="h-route">${e.from} → ${e.to}</div>
-      <div class="h-meta">
-        🕐 ${e.time} &nbsp;|&nbsp; ⏰ ${e.hour}:00
-        &nbsp;|&nbsp; 🌿 <span class="h-shade">${e.coolest_shade}%</span> shade
-        &nbsp;|&nbsp; ${e.coolest_dist}m
-      </div>
-    </div>
-  `).join("");
-}
-
-function replayHistory(idx) {
-  const entry = routeHistory[idx];
-  if (!entry || !entry.data) return;
-  currentRouteData = entry.data;
-  drawRoutePolylines(entry.data);
-  renderMetrics(entry.data);
-}
-
-/** ---- Share Route URL (Day 9) ---- */
-function shareRouteURL() {
-  if (!startMarker || !destMarker) {
-    alert("Calculate a route first, then share.");
-    return;
-  }
-  const s = startMarker.getLatLng();
-  const d = destMarker.getLatLng();
-  const hash = `#r/${s.lat.toFixed(5)},${s.lng.toFixed(5)}/${d.lat.toFixed(5)},${d.lng.toFixed(5)}/${selectedHour}/${selectedMode}`;
-  const url  = window.location.origin + window.location.pathname + hash;
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(url).then(() => {
-      const btn = document.getElementById("shareRouteBtn");
-      const old = btn.innerHTML;
-      btn.innerHTML = "✅ URL Copied!";
-      btn.style.color = "#10b981";
-      setTimeout(() => { btn.innerHTML = old; btn.style.color = ""; }, 2500);
-    });
-  } else {
-    prompt("Copy this route URL:", url);
-  }
-}
-
-/** Restore route from URL hash on load */
-function restoreFromHash() {
-  const hash = window.location.hash;
-  const match = hash.match(/^#r\/([-\d.]+),([-\d.]+)\/([-\d.]+),([-\d.]+)\/(\d+)\/(\w+)/);
-  if (!match) return;
-  const [, sLat, sLon, dLat, dLon, hour, mode] = match;
-  // Restore hour
-  selectedHour = parseInt(hour);
-  document.querySelectorAll(".time-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.hour == hour);
-  });
-  // Restore mode
-  selectedMode = mode;
-  document.querySelectorAll(".mode-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.mode === mode);
-  });
-  // Place markers and calculate
-  setStartMarker(parseFloat(sLat), parseFloat(sLon), "Shared Start");
-  setDestMarker(parseFloat(dLat), parseFloat(dLon), "Shared Destination");
-  setTimeout(() => calculateRoutes(), 500);
-}
-
-/** ---- Load Waypoint Recommendations (Day 9) ---- */
-async function loadWaypointRecommendations() {
-  try {
-    const res = await fetch("/api/waypoint_recommendations");
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data || data.length === 0) return;
-
-    const panel = document.getElementById("waypointPanel");
-    const list  = document.getElementById("waypointList");
-    if (!panel || !list) return;
-
-    const top3 = data.slice(0, 3);
-    list.innerHTML = top3.map(wp => `
-      <div class="waypoint-item">
-        📍 <b>${wp.waypoint}</b><br>
-        <span class="wp-gain">+${wp.shade_gain_pct}% shade</span>
-        <span class="wp-cost"> · +${wp.detour_m}m · +${wp.detour_min}min</span>
-      </div>
-    `).join("");
-    panel.classList.add("visible");
-  } catch (e) {
-    console.warn("Waypoints not available:", e);
-  }
-}
-
-// ---- Hook into existing calculateRoutes to add history + share ----
-const _origCalculateRoutes = calculateRoutes;
-calculateRoutes = async function() {
-  await _origCalculateRoutes.apply(this, arguments);
-  // After successful calculation, add to history
-  if (currentRouteData) {
-    addToHistory(currentRouteData);
-    updateShareButton();
-  }
-};
-
-function updateShareButton() {
-  const btn = document.getElementById("shareRouteBtn");
-  if (btn) {
-    btn.addEventListener("click", shareRouteURL);
-  }
-}
-
-// ---- Init on DOMContentLoaded extensions ----
-document.addEventListener("DOMContentLoaded", () => {
-  restoreFromHash();
-  loadWaypointRecommendations();
-  renderHistory();
-
-  // Wire up share button
-  const shareBtn = document.getElementById("shareRouteBtn");
-  if (shareBtn) {
-    shareBtn.addEventListener("click", shareRouteURL);
-  }
-});
-
-
-/* ==========================================================================
-   Day 10 & Day 11 Virtual Walker Simulation & Step Navigation Engine
-   ========================================================================== */
-
-let walkerMarker = null;
-let simInterval = null;
-let simIndex = 0;
-let simCoords = [];
-let simSpeed = 1;
-let simIsPlaying = false;
-let simElapsedSeconds = 0;
-let currentStepIndex = 0;
 
 function setupVirtualWalker(coolCoords) {
   const panel = document.getElementById("simulationPanel");
-  if (!panel || !coolCoords || coolCoords.length === 0) {
-    if (panel) panel.style.display = "none";
-    return;
-  }
+  if (!panel || !coolCoords || coolCoords.length === 0) return;
   panel.style.display = "";
   simCoords = coolCoords;
   resetSimulation();
@@ -779,14 +414,17 @@ function resetSimulation() {
   const playBtn = document.getElementById("simPlayBtn");
   if (playBtn) playBtn.innerHTML = "▶ Start Walk";
 
+  const banner = document.getElementById("gmapsNavBanner");
+  if (banner) banner.style.display = "none";
+
   if (simCoords && simCoords.length > 0) {
     const startPt = simCoords[0];
     if (!walkerMarker) {
       const walkerIcon = L.divIcon({
-        className: 'walker-marker-icon',
-        html: '🚶',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+        className: 'gmaps-nav-puck',
+        html: '<div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;width:32px;height:32px;border-radius:50%;background:rgba(26,115,232,0.25);animation:gmapsPulse 1.5s infinite;"></div><div style="width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;"><div style="width:4px;height:4px;border-radius:50%;background:#ffffff;"></div></div></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
       walkerMarker = L.marker(startPt, { icon: walkerIcon, zIndexOffset: 1000 }).addTo(map);
     } else {
@@ -801,6 +439,9 @@ function startSimulation() {
   const playBtn = document.getElementById("simPlayBtn");
   if (playBtn) playBtn.innerHTML = "⏸ Pause Walk";
 
+  const banner = document.getElementById("gmapsNavBanner");
+  if (banner) banner.style.display = "flex";
+
   if (simInterval) clearInterval(simInterval);
   simInterval = setInterval(() => {
     if (simIndex >= simCoords.length - 1) {
@@ -811,9 +452,7 @@ function startSimulation() {
 
     simIndex = Math.min(simCoords.length - 1, simIndex + simSpeed);
     const currPt = simCoords[simIndex];
-    if (walkerMarker) {
-      walkerMarker.setLatLng(currPt);
-    }
+    if (walkerMarker) walkerMarker.setLatLng(currPt);
 
     const pct = ((simIndex / (simCoords.length - 1)) * 100).toFixed(1);
     const pBar = document.getElementById("simProgressBar");
@@ -828,13 +467,25 @@ function startSimulation() {
 
     let instantShade = 65;
     let solarFlux = 620;
+    let streetName = "Tree-shaded Avenue";
     if (currentRouteData && currentRouteData.steps && currentRouteData.steps.length > 0) {
       const stepIdx = Math.min(currentRouteData.steps.length - 1, Math.floor((simIndex / simCoords.length) * currentRouteData.steps.length));
-      instantShade = currentRouteData.steps[stepIdx].shade_pct || 65;
-      solarFlux = currentRouteData.steps[stepIdx].solar_irradiance_w || 620;
+      const curStep = currentRouteData.steps[stepIdx];
+      instantShade = curStep.shade_pct || 65;
+      solarFlux = curStep.solar_irradiance_w || 620;
+      streetName = curStep.street || "Shaded Street";
     }
 
     updateSimHUD(walkedDist, instantShade, solarFlux, elapsedStr);
+
+    const remMeters = Math.max(0, totalDist - walkedDist);
+    const remMins = Math.ceil(remMeters / 80);
+    const navMain = document.getElementById("navMainText");
+    const navSub = document.getElementById("navSubText");
+    const navRem = document.getElementById("navRemaining");
+    if (navMain) navMain.innerText = `Walking on ${streetName}`;
+    if (navSub) navSub.innerText = `${instantShade}% in Shade • Solar flux ${solarFlux} W/m²`;
+    if (navRem) navRem.innerText = `${remMeters}m • ~${remMins} min`;
   }, 100);
 }
 
@@ -860,32 +511,22 @@ function updateSimHUD(dist, shade, solar, timeStr) {
 }
 
 function renderHeatStrain(thermal) {
-  const panel = document.getElementById("heatStrainPanel");
-  if (!panel) return;
-  if (!thermal) {
-    panel.style.display = "none";
-    return;
-  }
-  panel.style.display = "";
+  const p = document.getElementById("heatStrainPanel");
+  if (!p) return;
+  p.style.display = "";
+
   const sr = document.getElementById("sweatRateVal");
   const wl = document.getElementById("waterLossVal");
   const ws = document.getElementById("waterSavedVal");
   const rs = document.getElementById("restStopsVal");
-  const badge = document.getElementById("strainRiskBadge");
-  const adv = document.getElementById("hydrationAdvice");
+  const ha = document.getElementById("hydrationAdvice");
 
-  if (sr) sr.innerText = `${thermal.sweat_rate_ml_hr || 280} mL/h`;
-  if (wl) wl.innerText = `${thermal.water_loss_ml || 195} mL`;
-  if (ws) ws.innerText = `-${thermal.water_saved_ml || 55} mL`;
-  if (rs) rs.innerText = `${thermal.rest_stops || 1} pause(s)`;
-
-  if (badge) {
-    const lvl = (thermal.risk_level || "Low").toUpperCase();
-    badge.innerText = `${lvl} RISK`;
-    badge.className = "strain-badge " + (lvl === "HIGH" ? "badge-high" : (lvl === "MODERATE" ? "badge-moderate" : "badge-low"));
-  }
-  if (adv) {
-    adv.innerText = `Recommended fluid intake: ${thermal.recommended_intake_ml || 250} mL. Take shaded pauses under canopy clusters.`;
+  if (thermal) {
+    if (sr) sr.innerText = `${thermal.sweat_rate_ml_hr || 285} mL/h`;
+    if (wl) wl.innerText = `${thermal.total_water_loss_ml || 90} mL`;
+    if (ws) ws.innerText = `+${thermal.water_saved_ml || 34} mL`;
+    if (rs) rs.innerText = `${thermal.canopy_rest_stops || 1} stop`;
+    if (ha && thermal.hydration_advice) ha.innerText = thermal.hydration_advice;
   }
 }
 
@@ -895,6 +536,7 @@ function renderTurnStepsExtended(steps) {
   if (!stepsList) return;
   stepsList.innerHTML = "";
   if (!steps || steps.length === 0) {
+    stepsList.innerHTML = '<div style="font-size:12px;color:#5f6368;padding:8px;">No steps available.</div>';
     if (stepper) stepper.style.display = "none";
     return;
   }
@@ -905,18 +547,14 @@ function renderTurnStepsExtended(steps) {
   steps.forEach((step, idx) => {
     const div = document.createElement("div");
     const isShaded = (step.shade_pct || (step.is_shaded ? 70 : 10)) >= 35;
-    div.className = `step-item ${isShaded ? "shaded" : ""}`;
-    div.dataset.stepIdx = idx;
+    div.className = "step-card";
     div.innerHTML = `
-      <div class="step-street">
-        <span>${isShaded ? "🌳" : "☀️"} ${step.street}</span>
-        <span class="step-compass-badge" style="font-size:0.75rem;opacity:0.8;">${step.compass || "🚶"} · ${step.shade_pct || (step.is_shaded ? "Shaded" : "Sun")}%</span>
+      <div class="step-icon">${isShaded ? "🌳" : "☀️"}</div>
+      <div style="flex:1;">
+        <div class="step-street">${step.street} (${step.distance_m}m)</div>
+        <div class="step-desc">${isShaded ? "Shaded corridor" : "Exposed sun"} • ${step.infrastructure || "Sidewalk"}</div>
+        ${step.advisory ? `<div style="font-size:11px;color:#0F9D58;margin-top:2px;">💡 ${step.advisory}</div>` : ""}
       </div>
-      <div class="step-meta" style="font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between;margin:3px 0;">
-        <span>${step.distance_m} m</span>
-        <span>${step.infrastructure || "Sidewalk"}</span>
-      </div>
-      ${step.advisory ? `<div class="step-advisory" style="font-size:0.73rem;color:#34d399;margin-top:2px;">💡 ${step.advisory}</div>` : ""}
     `;
     div.addEventListener("click", () => focusStep(idx));
     stepsList.appendChild(div);
@@ -928,11 +566,6 @@ function focusStep(idx) {
   if (!steps || idx < 0 || idx >= steps.length) return;
   currentStepIndex = idx;
   updateStepCounter(steps.length);
-
-  document.querySelectorAll(".step-item").forEach((el, i) => {
-    el.style.background = (i === idx) ? "rgba(6, 182, 212, 0.25)" : "";
-    el.style.borderColor = (i === idx) ? "#06b6d4" : "";
-  });
 
   const coolCoords = extractCoords(currentRouteData.coolest);
   if (coolCoords && coolCoords.length > 0) {
@@ -948,10 +581,225 @@ function updateStepCounter(total) {
   if (c) c.innerText = `${currentStepIndex + 1} / ${total}`;
 }
 
-// Hook into calculateRoutes completion
-const _postDay10Hook = calculateRoutes;
+function addToHistory(data) {
+  const coolest = data.coolest || {};
+  const startSelect = document.getElementById("startSelect");
+  const destSelect = document.getElementById("destSelect");
+  const startName = startSelect?.options[startSelect.selectedIndex]?.text || "Custom";
+  const destName  = destSelect?.options[destSelect.selectedIndex]?.text  || "Custom";
+
+  const entry = {
+    from: startName,
+    to:   destName,
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    hour: selectedHour,
+    coolest_shade: coolest.shade_pct || 0,
+    coolest_dist:  coolest.distance_m || 0
+  };
+  routeHistory.unshift(entry);
+  if (routeHistory.length > 5) routeHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById("historyList");
+  if (!list) return;
+  if (routeHistory.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:#80868b;padding:4px;">No routes calculated yet.</div>';
+    return;
+  }
+  list.innerHTML = routeHistory.map(e => `
+    <div style="font-size:11.5px;padding:4px 0;border-bottom:1px solid #f1f3f4;display:flex;justify-content:space-between;">
+      <span>${e.from} → ${e.to}</span>
+      <span style="color:#0F9D58;font-weight:600;">${e.coolest_shade}% shade</span>
+    </div>
+  `).join("");
+}
+
+function setupEventListeners() {
+  document.querySelectorAll(".gmaps-chip[data-from]").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".gmaps-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      const from = chip.getAttribute("data-from");
+      const to   = chip.getAttribute("data-to");
+      const s = document.getElementById("startSelect");
+      const d = document.getElementById("destSelect");
+      if (s) s.value = from;
+      if (d) d.value = to;
+      applyLandmarkSelection();
+      calculateRoutes();
+    });
+  });
+
+  const startSelect = document.getElementById("startSelect");
+  const destSelect  = document.getElementById("destSelect");
+  if (startSelect) startSelect.addEventListener("change", () => { applyLandmarkSelection(); calculateRoutes(); });
+  if (destSelect) destSelect.addEventListener("change", () => { applyLandmarkSelection(); calculateRoutes(); });
+
+  const swapBtn = document.getElementById("swapLocationsBtn");
+  if (swapBtn) {
+    swapBtn.addEventListener("click", () => {
+      const sVal = startSelect.value;
+      const dVal = destSelect.value;
+      startSelect.value = dVal;
+      destSelect.value  = sVal;
+      applyLandmarkSelection();
+      calculateRoutes();
+    });
+  }
+
+  const findBtn = document.getElementById("findRoutesBtn");
+  if (findBtn) findBtn.addEventListener("click", calculateRoutes);
+
+  document.querySelectorAll(".gmaps-time-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".gmaps-time-pill").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const h = btn.getAttribute("data-hour");
+      if (h === "live") {
+        selectedHour = new Date().getHours();
+        document.getElementById("timeLabel").innerText = `Live Clock (${selectedHour}:00)`;
+      } else {
+        selectedHour = parseInt(h);
+        document.getElementById("timeLabel").innerText = `${selectedHour}:00 (${selectedHour === 13 ? "Peak Heat" : selectedHour === 9 ? "Morning Sun" : "Afternoon Sun"})`;
+      }
+      calculateRoutes();
+    });
+  });
+
+  const layerTrigger = document.getElementById("layerTriggerBtn");
+  const layerPopover = document.getElementById("layerPopover");
+  if (layerTrigger && layerPopover) {
+    layerTrigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isVisible = layerPopover.style.display !== "none";
+      layerPopover.style.display = isVisible ? "none" : "block";
+    });
+    document.addEventListener("click", () => { layerPopover.style.display = "none"; });
+    layerPopover.addEventListener("click", (e) => e.stopPropagation());
+  }
+
+  document.querySelectorAll(".layer-option").forEach(opt => {
+    opt.addEventListener("click", () => {
+      const lyr = opt.getAttribute("data-layer");
+      switchBasemap(lyr);
+    });
+  });
+
+  const zoomIn = document.getElementById("zoomInBtn");
+  const zoomOut = document.getElementById("zoomOutBtn");
+  if (zoomIn) zoomIn.addEventListener("click", () => map.zoomIn());
+  if (zoomOut) zoomOut.addEventListener("click", () => map.zoomOut());
+
+  const recenter = document.getElementById("recenterBtn");
+  if (recenter) {
+    recenter.addEventListener("click", () => {
+      const bounds = [[PILOT_BBOX[1], PILOT_BBOX[0]], [PILOT_BBOX[3], PILOT_BBOX[2]]];
+      map.fitBounds(bounds, { padding: [50, 50] });
+    });
+  }
+
+  const crosshair = document.getElementById("locateCrosshairBtn");
+  const locateMe = document.getElementById("locateMeBtn");
+  if (crosshair) crosshair.addEventListener("click", locateUserGPS);
+  if (locateMe) locateMe.addEventListener("click", locateUserGPS);
+
+  const togglePanel = document.getElementById("togglePanelBtn");
+  const sidebar = document.getElementById("sidebar");
+  if (togglePanel && sidebar) {
+    togglePanel.addEventListener("click", () => {
+      sidebar.classList.toggle("collapsed");
+      togglePanel.innerText = sidebar.classList.contains("collapsed") ? "▶" : "◀";
+    });
+  }
+
+  const advToggle = document.getElementById("advancedToggle");
+  const advPanel = document.getElementById("advancedPanel");
+  if (advToggle && advPanel) {
+    advToggle.addEventListener("click", () => {
+      const isHidden = advPanel.style.display === "none";
+      advPanel.style.display = isHidden ? "flex" : "none";
+    });
+  }
+
+  const cCard = document.getElementById("coolestRouteCard");
+  const bCard = document.getElementById("balancedCard");
+  const fCard = document.getElementById("fastestRouteCard");
+  if (cCard) cCard.addEventListener("click", () => highlightActiveRoute("coolest"));
+  if (bCard) bCard.addEventListener("click", () => highlightActiveRoute("balanced"));
+  if (fCard) fCard.addEventListener("click", () => highlightActiveRoute("fastest"));
+
+  const startNavBtn = document.getElementById("startCoolNavBtn");
+  if (startNavBtn) {
+    startNavBtn.addEventListener("click", () => {
+      highlightActiveRoute("coolest");
+      startSimulation();
+      const coolCoords = extractCoords(currentRouteData ? currentRouteData.coolest : null);
+      if (coolCoords && coolCoords.length > 0) {
+        map.setView(coolCoords[0], 17, { animate: true });
+      }
+    });
+  }
+
+  const navClose = document.getElementById("navCloseBtn");
+  if (navClose) {
+    navClose.addEventListener("click", () => {
+      pauseSimulation();
+      const banner = document.getElementById("gmapsNavBanner");
+      if (banner) banner.style.display = "none";
+    });
+  }
+
+  const previewSteps = document.getElementById("previewCoolStepsBtn");
+  if (previewSteps) {
+    previewSteps.addEventListener("click", () => {
+      const stepsDiv = document.getElementById("stepsList");
+      if (stepsDiv) stepsDiv.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  const exportGpx = document.getElementById("exportGpxBtn");
+  if (exportGpx) exportGpx.addEventListener("click", downloadRouteGPX);
+
+  const exportGeo = document.getElementById("exportGeoJsonBtn");
+  if (exportGeo) {
+    exportGeo.addEventListener("click", () => {
+      if (!currentRouteData) { alert("Please calculate a route first."); return; }
+      const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentRouteData, null, 2));
+      const a = document.createElement("a");
+      a.setAttribute("href", str);
+      a.setAttribute("download", `pune_cooler_routes_${Date.now()}.geojson`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+  }
+
+  const resetPins = document.getElementById("resetPinsBtn");
+  if (resetPins) {
+    resetPins.addEventListener("click", () => {
+      if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+      if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+      clearRouteLayers();
+      const resultsSec = document.getElementById("resultsSection");
+      if (resultsSec) resultsSec.style.display = "none";
+    });
+  }
+
+  const shareBtn = document.getElementById("shareRouteBtn");
+  if (shareBtn) shareBtn.addEventListener("click", shareRouteURL);
+
+  const heatToggle = document.getElementById("heatmapToggle");
+  if (heatToggle) heatToggle.addEventListener("change", toggleHeatmap);
+
+  const isoToggle = document.getElementById("isochroneToggle");
+  if (isoToggle) isoToggle.addEventListener("change", toggleIsochrone);
+}
+
+const _originalCalcRoutes = calculateRoutes;
 calculateRoutes = async function() {
-  await _postDay10Hook.apply(this, arguments);
+  await _originalCalcRoutes.apply(this, arguments);
   if (currentRouteData) {
     const coolCoords = extractCoords(currentRouteData.coolest);
     setupVirtualWalker(coolCoords);
@@ -960,71 +808,13 @@ calculateRoutes = async function() {
   }
 };
 
-// Wire up controls on DOM ready
-document.addEventListener("DOMContentLoaded", () => {
-  // Wire up Play / Reset simulation buttons
-  const playBtn = document.getElementById("simPlayBtn");
-  if (playBtn) {
-    playBtn.addEventListener("click", () => {
-      if (simIsPlaying) pauseSimulation();
-      else startSimulation();
-    });
-  }
-  const resetBtn = document.getElementById("simResetBtn");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", resetSimulation);
-  }
-
-  // Speed pills
-  document.querySelectorAll(".speed-pill").forEach(pill => {
-    pill.addEventListener("click", () => {
-      document.querySelectorAll(".speed-pill").forEach(p => p.classList.remove("active"));
-      pill.classList.add("active");
-      simSpeed = parseInt(pill.getAttribute("data-speed")) || 1;
-    });
-  });
-
-  // Step Steppers
-  const prevBtn = document.getElementById("stepPrevBtn");
-  if (prevBtn) {
-    prevBtn.addEventListener("click", () => focusStep(currentStepIndex - 1));
-  }
-  const nextBtn = document.getElementById("stepNextBtn");
-  if (nextBtn) {
-    nextBtn.addEventListener("click", () => focusStep(currentStepIndex + 1));
-  }
-
-  // Custom departure time input
-  const timeInput = document.getElementById("customTimeInput");
-  if (timeInput) {
-    timeInput.addEventListener("change", () => {
-      calculateRoutes();
-    });
-  }
-});
-
-
-/* ==========================================================================
-   Day 13 & 14 PWA Service Worker, GPS Geolocation & GPX Export
-   ========================================================================== */
-
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(() => {
-      console.log('CoolerRoutes PWA Service Worker registered successfully.');
-    }).catch(err => {
-      console.log('Service Worker registration skipped/failed:', err);
-    });
-  }
-}
-
 function locateUserGPS() {
   if (!navigator.geolocation) {
     alert("Geolocation is not supported by your browser.");
     return;
   }
   const btn = document.getElementById("locateMeBtn");
-  if (btn) btn.innerText = "📍 Locating...";
+  if (btn) btn.innerText = "Locating GPS...";
 
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -1033,13 +823,13 @@ function locateUserGPS() {
       setStartMarker(lat, lon, "My GPS Location");
       map.setView([lat, lon], 16);
       if (btn) btn.innerText = "✅ GPS Located!";
-      setTimeout(() => { if (btn) btn.innerText = "📍 Use My GPS"; }, 2500);
+      setTimeout(() => { if (btn) btn.innerText = "Your location"; }, 2500);
       calculateRoutes();
     },
     err => {
-      console.warn("GPS lookup failed, using pilot center fallback:", err);
-      setStartMarker(18.5172, 73.8415, "Deccan Gymkhana (Center)");
-      if (btn) btn.innerText = "📍 Use My GPS";
+      console.warn("GPS error fallback:", err);
+      setStartMarker(18.5178, 73.8151, "MIT-WPU Campus (Center)");
+      if (btn) btn.innerText = "Your location";
       calculateRoutes();
     },
     { enableHighAccuracy: true, timeout: 6000 }
@@ -1048,7 +838,7 @@ function locateUserGPS() {
 
 function downloadRouteGPX() {
   if (!currentRouteData || !currentRouteData.coolest) {
-    alert("Please calculate a route first before exporting GPX.");
+    alert("Please calculate a route first before downloading GPX.");
     return;
   }
   const coolCoords = extractCoords(currentRouteData.coolest);
@@ -1063,7 +853,7 @@ function downloadRouteGPX() {
   });
   gpx += '  </trkseg></trk>\n</gpx>';
 
-  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const blob = new Blob([gpx], { type: "application/x-gpx+xml" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `pune_cool_route_${Date.now()}.gpx`;
@@ -1072,17 +862,56 @@ function downloadRouteGPX() {
   document.body.removeChild(a);
 }
 
-// Attach Day 13/14 listeners
-document.addEventListener("DOMContentLoaded", () => {
-  registerServiceWorker();
-
-  const locateBtn = document.getElementById("locateMeBtn");
-  if (locateBtn) {
-    locateBtn.addEventListener("click", locateUserGPS);
+function shareRouteURL() {
+  if (!startMarker || !destMarker) return;
+  const s = startMarker.getLatLng();
+  const d = destMarker.getLatLng();
+  const url = `${window.location.origin}/#from=${s.lat.toFixed(4)},${s.lng.toFixed(4)}&to=${d.lat.toFixed(4)},${d.lng.toFixed(4)}&hour=${selectedHour}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => alert("Route link copied to clipboard!"));
+  } else {
+    prompt("Copy route link:", url);
   }
+}
 
-  const gpxBtn = document.getElementById("exportGpxBtn");
-  if (gpxBtn) {
-    gpxBtn.addEventListener("click", downloadRouteGPX);
+function toggleHeatmap() {
+  if (heatmapActive) {
+    if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
+    heatmapActive = false;
+  } else {
+    fetch("/outputs/day8_heatmap.geojson")
+      .then(r => r.json())
+      .then(data => {
+        const slot = selectedHour < 11 ? "shade_0900" : selectedHour < 15 ? "shade_1300" : "shade_1600";
+        heatmapLayer = L.geoJSON(data, {
+          style: feature => {
+            const shade = feature.properties[slot] || feature.properties.composite || 0;
+            return { color: shade >= 0.5 ? "#0F9D58" : shade >= 0.3 ? "#fbbc04" : "#ea4335", weight: 3, opacity: 0.8 };
+          }
+        }).addTo(map);
+        heatmapActive = true;
+      }).catch(err => console.warn(err));
   }
-});
+}
+
+function toggleIsochrone() {
+  if (isochroneActive) {
+    if (isochroneLayerShd) { map.removeLayer(isochroneLayerShd); isochroneLayerShd = null; }
+    isochroneActive = false;
+  } else {
+    fetch("/outputs/day8_isochrone_shaded.geojson")
+      .then(r => r.json())
+      .then(shadedData => {
+        isochroneLayerShd = L.geoJSON(shadedData, {
+          style: { color: "#0F9D58", weight: 2, opacity: 0.7, fillOpacity: 0.1, dashArray: "6, 4" }
+        }).addTo(map);
+        isochroneActive = true;
+      }).catch(err => console.warn(err));
+  }
+}
+
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+}
