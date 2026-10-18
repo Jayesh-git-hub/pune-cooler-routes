@@ -1,0 +1,8 @@
+corridor,edges_count,total_length_m,sidewalk_pct,midday_shade_pct,tree_bonus_pct,walkability_index
+Senapati Bapat Marg,40,4992.0,95.0,100.0,48.0,87.6
+Bhandarkar Road,64,2446.0,0.0,100.0,50.0,50.0
+Karve Road,364,16213.0,0.0,43.8,35.0,24.5
+Prabhat Road,56,3023.0,0.0,59.5,3.6,24.5
+Ghole Road,28,977.0,0.0,16.3,0.0,6.5
+Tilak Road,22,686.0,0.0,9.8,0.0,3.9
+Paud Road,132,10695.0,0.0,8.9,0.0,3.6

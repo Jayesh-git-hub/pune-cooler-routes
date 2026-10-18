@@ -1,0 +1,11 @@
+route_pair,short_dist_m,short_time_min,short_gain_m,short_kcal,flat_dist_m,flat_time_min,flat_gain_m,flat_kcal,climb_avoided_m,kcal_saved
+MIT-WPU Campus -> Fergusson College,4339.0,49.4,4.7,215.7,4339.5,49.4,3.9,215.7,0.8,0.0
+Deccan Gymkhana -> ILS Law College,3545.1,44.6,58.7,177.1,3545.1,44.6,58.7,177.1,0.0,0.0
+BMCC College -> Sambhaji Garden,1719.1,19.6,5.6,85.7,1719.1,19.6,5.6,85.7,0.0,0.0
+Kamla Nehru Park -> FC Road Market,2470.6,28.5,15.0,123.1,2470.6,28.5,15.0,123.1,0.0,0.0
+Garware College -> MIT-WPU Campus,3058.9,38.3,46.3,152.6,3058.9,38.3,46.3,152.6,0.0,0.0
+FC Road Market -> Deccan Gymkhana,1132.1,13.3,11.5,56.7,1132.1,13.3,11.5,56.7,0.0,0.0
+ILS Law College -> BMCC College,3110.4,35.8,5.3,154.8,3110.4,35.8,5.3,154.8,0.0,0.0
+Sambhaji Garden -> Kamla Nehru Park,1795.1,22.7,36.8,90.0,1795.1,22.7,36.8,90.0,0.0,0.0
+MIT-WPU Campus -> Garware College,3058.9,34.7,2.4,152.1,3058.9,34.7,2.4,152.1,0.0,0.0
+Fergusson College -> Deccan Gymkhana,755.7,8.5,1.6,37.7,755.7,8.5,1.6,37.7,0.0,0.0

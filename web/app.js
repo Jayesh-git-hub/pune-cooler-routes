@@ -1002,3 +1002,87 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+
+/* ==========================================================================
+   Day 13 & 14 PWA Service Worker, GPS Geolocation & GPX Export
+   ========================================================================== */
+
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').then(() => {
+      console.log('CoolerRoutes PWA Service Worker registered successfully.');
+    }).catch(err => {
+      console.log('Service Worker registration skipped/failed:', err);
+    });
+  }
+}
+
+function locateUserGPS() {
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser.");
+    return;
+  }
+  const btn = document.getElementById("locateMeBtn");
+  if (btn) btn.innerText = "📍 Locating...";
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      setStartMarker(lat, lon, "My GPS Location");
+      map.setView([lat, lon], 16);
+      if (btn) btn.innerText = "✅ GPS Located!";
+      setTimeout(() => { if (btn) btn.innerText = "📍 Use My GPS"; }, 2500);
+      calculateRoutes();
+    },
+    err => {
+      console.warn("GPS lookup failed, using pilot center fallback:", err);
+      setStartMarker(18.5172, 73.8415, "Deccan Gymkhana (Center)");
+      if (btn) btn.innerText = "📍 Use My GPS";
+      calculateRoutes();
+    },
+    { enableHighAccuracy: true, timeout: 6000 }
+  );
+}
+
+function downloadRouteGPX() {
+  if (!currentRouteData || !currentRouteData.coolest) {
+    alert("Please calculate a route first before exporting GPX.");
+    return;
+  }
+  const coolCoords = extractCoords(currentRouteData.coolest);
+  if (!coolCoords || coolCoords.length === 0) return;
+
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+            '<gpx version="1.1" creator="PuneCoolerRoutes" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+            '  <metadata><name>Pune_Cooler_Route</name></metadata>\n' +
+            '  <trk><name>Coolest Shaded Route</name><trkseg>\n';
+  coolCoords.forEach(pt => {
+    gpx += `    <trkpt lat="${pt[0].toFixed(6)}" lon="${pt[1].toFixed(6)}"/>\n`;
+  });
+  gpx += '  </trkseg></trk>\n</gpx>';
+
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `pune_cool_route_${Date.now()}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Attach Day 13/14 listeners
+document.addEventListener("DOMContentLoaded", () => {
+  registerServiceWorker();
+
+  const locateBtn = document.getElementById("locateMeBtn");
+  if (locateBtn) {
+    locateBtn.addEventListener("click", locateUserGPS);
+  }
+
+  const gpxBtn = document.getElementById("exportGpxBtn");
+  if (gpxBtn) {
+    gpxBtn.addEventListener("click", downloadRouteGPX);
+  }
+});

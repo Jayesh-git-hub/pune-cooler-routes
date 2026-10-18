@@ -23,6 +23,7 @@ from day5_engine import CoolerRouter, PUNE_LANDMARKS
 from day6_router import Day6MultiCriteriaRouter
 from day10_dynamic_router import Day10DynamicRouter
 from day11_heat_strain import evaluate_route_heat_strain
+from day13_air_quality import export_route_to_gpx
 from config import BBOX, OUTPUTS_DIR
 
 WEB_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "web")
@@ -52,6 +53,10 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
             self._serve_file(os.path.join(WEB_DIR, 'style.css'), 'text/css')
         elif path == '/app.js':
             self._serve_file(os.path.join(WEB_DIR, 'app.js'), 'application/javascript')
+        elif path == '/manifest.json':
+            self._serve_file(os.path.join(WEB_DIR, 'manifest.json'), 'application/manifest+json')
+        elif path == '/sw.js':
+            self._serve_file(os.path.join(WEB_DIR, 'sw.js'), 'application/javascript')
         elif path == '/api/landmarks':
             self._send_json(PUNE_LANDMARKS)
         elif path == '/api/status':
@@ -62,7 +67,7 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 "landmarks_count": len(PUNE_LANDMARKS),
                 "nodes": len(router_v5.G.nodes) if router_v5 else 0,
                 "edges": len(router_v5.G.edges) if router_v5 else 0,
-                "day_version": "Day 11 Production (Dynamic Solar, Virtual Walker, Heat Strain)"
+                "day_version": "Day 14 Production Final (Topography, Clean Air, Field PWA)"
             })
         elif path in ('/api/route', '/api/dynamic_route'):
             self._handle_route_query(query)
@@ -110,8 +115,12 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 self._send_json(df.to_dict(orient="records"))
             else:
                 self._send_json({"error": "Day 11 data not generated yet"}, status=404)
+        elif path in ('/outputs/day14_capstone_report.html', '/outputs/capstone.html'):
+            self._serve_file(os.path.join(OUTPUTS_DIR, "day14_capstone_report.html"), "text/html")
         elif path == '/outputs/day9_full_report.html':
             self._serve_file(os.path.join(OUTPUTS_DIR, "day9_full_report.html"), "text/html")
+        elif path == '/api/export_gpx':
+            self._handle_gpx_export(query)
         elif path.startswith('/outputs/') and path.endswith('.geojson'):
             fname = os.path.basename(path)
             fpath = os.path.join(OUTPUTS_DIR, fname)
@@ -321,6 +330,28 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": str(e)}, status=500)
 
+
+
+    def _handle_gpx_export(self, query):
+        try:
+            orig_lat = float(query.get('start_lat', [0])[0])
+            orig_lon = float(query.get('start_lon', [0])[0])
+            dest_lat = float(query.get('dest_lat', [0])[0])
+            dest_lon = float(query.get('dest_lon', [0])[0])
+            res = router_v10.route(orig_lat, orig_lon, dest_lat, dest_lon, departure_time_str="13:00")
+            if not res or not res.get('dynamic_safe_cool'):
+                self.send_error(404, "Route could not be generated for GPX")
+                return
+            coords = res['dynamic_safe_cool']['coordinates']
+            gpx_str = export_route_to_gpx(coords, "Pune_Cooler_Route").encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/gpx+xml')
+            self.send_header('Content-Disposition', 'attachment; filename="pune_cool_route.gpx"')
+            self.send_header('Content-Length', str(len(gpx_str)))
+            self.end_headers()
+            self.wfile.write(gpx_str)
+        except Exception as e:
+            self.send_error(500, f"GPX export error: {e}")
 
 def run_server(port=8050):
     global router_v5, router_v6, router_v10

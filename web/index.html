@@ -14,8 +14,11 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
-  <!-- Application CSS -->
+  <!-- Application CSS & PWA Manifest -->
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
   <div class="app-layout">
@@ -42,6 +45,7 @@
         <div class="control-group">
           <label class="group-label">Quick Landmark Presets</label>
           <div class="preset-chips" id="presetChips">
+            <button class="locate-gps-chip" id="locateMeBtn">📍 Use My GPS</button>
             <button class="chip active" data-from="mit_wpu" data-to="fergusson">MIT ➔ Fergusson</button>
             <button class="chip" data-from="deccan" data-to="ils_law">Deccan ➔ ILS Law</button>
             <button class="chip" data-from="bmcc" data-to="sambhaji_park">BMCC ➔ Sambhaji</button>
@@ -322,16 +326,16 @@
         <!-- Export & Share Action -->
         <div class="export-actions">
           <button class="action-btn" id="exportGeoJsonBtn">📥 Download GeoJSON</button>
+          <button class="action-btn" id="exportGpxBtn">🗺️ Download GPX Track</button>
           <button class="action-btn" id="resetPinsBtn">📍 Reset Pins</button>
-          <a class="report-btn" href="/outputs/day9_full_report.html" target="_blank">📊 Full 9-Day Report</a>
+          <a class="report-btn" href="/outputs/day14_capstone_report.html" target="_blank" style="background:linear-gradient(135deg, #10b981 0%, #0284c7 100%);color:#fff;font-weight:700;">🏆 14-Day Master Capstone Report</a>
           <button class="share-btn" id="shareRouteBtn">🔗 Share Route URL</button>
-
         </div>
       </section>
 
       <!-- Footer -->
       <footer class="app-footer">
-        <p>Built for Pune Walkers • Days 1 to 11 • Dynamic Solar + Virtual Walker + Heat Strain</p>
+        <p>Built for Pune Walkers • Days 1 to 14 Production Complete • Dynamic Solar + Tobler Topography + Clean Air + Field PWA</p>
       </footer>
     </aside>
 

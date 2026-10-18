@@ -1,0 +1,18 @@
+﻿{
+  "name": "Pune Cooler Routes",
+  "short_name": "CoolerRoutes",
+  "description": "Shade-aware, clean-air, and slope-optimized pedestrian navigation for Pune, India.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0a0f1d",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["navigation", "health", "travel"]
+}
