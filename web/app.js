@@ -40,6 +40,7 @@ let activeRouteType = "coolest";
 let selectedHour = 13;
 let selectedCoolness = 2.5;
 let selectedMode = "dynamic";
+let selectedTravelMode = "walk"; // "walk", "max_cool", "bicycle" 
 
 // Pilot Bounding Box (Kothrud to FC Road)
 const PILOT_BBOX = [73.802, 18.495, 73.846, 18.531];
@@ -235,7 +236,7 @@ async function calculateRoutes() {
   const timeQueryVal = (customTimeElem && customTimeElem.value) ? customTimeElem.value : `${selectedHour}:00`;
   const url = `/api/route?start_lat=${startLatLng.lat}&start_lon=${startLatLng.lng}` +
               `&dest_lat=${destLatLng.lat}&dest_lon=${destLatLng.lng}` +
-              `&hour=${selectedHour}&time=${timeQueryVal}&coolness=${selectedCoolness}&mode=${selectedMode}`;
+              `&hour=${selectedHour}&time=${timeQueryVal}&coolness=${selectedCoolness}&mode=${selectedMode}&travel_mode=${selectedTravelMode}`;
 
   try {
     const res = await fetch(url);
@@ -338,6 +339,31 @@ function clearRouteLayers() {
 }
 
 function renderMetrics(data) {
+  const isCycle = (data.travel_mode || selectedTravelMode) === "bicycle";
+  const isMaxCool = (data.travel_mode || selectedTravelMode) === "max_cool";
+
+  const coolBadge = document.querySelector("#coolestRouteCard .gmaps-rc-badge");
+  if (coolBadge) {
+    if (isCycle) coolBadge.innerText = "🚴 BEST SHADED CYCLE ROUTE";
+    else if (isMaxCool) coolBadge.innerText = "🌳 MAXIMUM SHADE (DEEP CANOPY)";
+    else coolBadge.innerText = "🌿 BEST SHADED ROUTE";
+  }
+
+  const fastBadge = document.querySelector("#fastestRouteCard .gmaps-rc-badge");
+  if (fastBadge) {
+    fastBadge.innerText = isCycle ? "⚡ FASTEST (CYCLE DIRECT)" : "⚡ FASTEST (DIRECT)";
+  }
+
+  const simTitle = document.querySelector(".sim-title");
+  if (simTitle) {
+    simTitle.innerText = isCycle ? "🚴 Cycling Navigation HUD" : "🚶 Pedestrian Navigation HUD";
+  }
+
+  const playBtn = document.getElementById("simPlayBtn");
+  if (playBtn && !simIsPlaying) {
+    playBtn.innerHTML = isCycle ? "▶ Start Ride" : "▶ Start Walk";
+  }
+
   if (data.fastest) {
     const fd = document.getElementById("fastDist");
     const ft = document.getElementById("fastTime");
@@ -478,12 +504,14 @@ function startSimulation() {
 
     updateSimHUD(walkedDist, instantShade, solarFlux, elapsedStr);
 
+    const isCycling = selectedTravelMode === "bicycle";
+    const speedMMin = isCycling ? 250 : 80;
     const remMeters = Math.max(0, totalDist - walkedDist);
-    const remMins = Math.ceil(remMeters / 80);
+    const remMins = Math.ceil(remMeters / speedMMin);
     const navMain = document.getElementById("navMainText");
     const navSub = document.getElementById("navSubText");
     const navRem = document.getElementById("navRemaining");
-    if (navMain) navMain.innerText = `Walking on ${streetName}`;
+    if (navMain) navMain.innerText = `${isCycling ? "Cycling" : "Walking"} on ${streetName}`;
     if (navSub) navSub.innerText = `${instantShade}% in Shade • Solar flux ${solarFlux} W/m²`;
     if (navRem) navRem.innerText = `${remMeters}m • ~${remMins} min`;
   }, 100);
@@ -617,6 +645,75 @@ function renderHistory() {
 }
 
 function setupEventListeners() {
+  // Travel Mode Switcher: Walking, Max Cool, Cycling
+  const modeWalk = document.getElementById("modeWalk");
+  const modeCool = document.getElementById("modeCool");
+  const modeBicycle = document.getElementById("modeBicycle");
+
+  function setTravelMode(mode) {
+    selectedTravelMode = mode;
+    if (modeWalk) modeWalk.classList.toggle("active", mode === "walk");
+    if (modeCool) modeCool.classList.toggle("active", mode === "max_cool");
+    if (modeBicycle) modeBicycle.classList.toggle("active", mode === "bicycle");
+
+    if (mode === "max_cool") {
+      selectedCoolness = 6.0;
+    } else if (mode === "bicycle") {
+      selectedCoolness = 3.0;
+    } else {
+      selectedCoolness = 2.5;
+    }
+
+    const coolSlider = document.getElementById("coolnessSlider");
+    if (coolSlider) {
+      coolSlider.value = Math.min(5.0, selectedCoolness);
+      const lbl = document.getElementById("coolnessVal");
+      if (lbl) lbl.innerText = `${selectedCoolness}x`;
+    }
+
+    calculateRoutes();
+  }
+
+  if (modeWalk) modeWalk.addEventListener("click", () => setTravelMode("walk"));
+  if (modeCool) modeCool.addEventListener("click", () => setTravelMode("max_cool"));
+  if (modeBicycle) modeBicycle.addEventListener("click", () => setTravelMode("bicycle"));
+
+  // Simulation controls
+  const simPlay = document.getElementById("simPlayBtn");
+  if (simPlay) {
+    simPlay.addEventListener("click", () => {
+      if (simIsPlaying) pauseSimulation();
+      else startSimulation();
+    });
+  }
+  const simReset = document.getElementById("simResetBtn");
+  if (simReset) {
+    simReset.addEventListener("click", resetSimulation);
+  }
+  document.querySelectorAll(".speed-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".speed-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      simSpeed = parseInt(pill.getAttribute("data-speed")) || 1;
+    });
+  });
+
+  // Turn-by-turn steps accordion
+  const toggleSteps = document.getElementById("toggleStepsBtn");
+  const stepsList = document.getElementById("stepsList");
+  if (toggleSteps && stepsList) {
+    toggleSteps.addEventListener("click", () => {
+      const isHidden = stepsList.style.display === "none";
+      stepsList.style.display = isHidden ? "flex" : "none";
+      const arrow = toggleSteps.querySelector(".accordion-arrow");
+      if (arrow) arrow.innerText = isHidden ? "▲" : "▼";
+    });
+  }
+  const stepPrev = document.getElementById("stepPrevBtn");
+  const stepNext = document.getElementById("stepNextBtn");
+  if (stepPrev) stepPrev.addEventListener("click", () => focusStep(currentStepIndex - 1));
+  if (stepNext) stepNext.addEventListener("click", () => focusStep(currentStepIndex + 1));
+
   document.querySelectorAll(".gmaps-chip[data-from]").forEach(chip => {
     chip.addEventListener("click", () => {
       document.querySelectorAll(".gmaps-chip").forEach(c => c.classList.remove("active"));

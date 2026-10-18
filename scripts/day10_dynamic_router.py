@@ -34,6 +34,11 @@ from day5_engine import PUNE_LANDMARKS
 WALKING_SPEED_M_MIN = (WALKING_SPEED_KMH * 1000.0) / 60.0
 WALKING_SPEED_M_S = WALKING_SPEED_M_MIN / 60.0
 
+# Cycling speed: 15.0 km/h = 250 m/min = 4.167 m/s
+CYCLING_SPEED_KMH = 15.0
+CYCLING_SPEED_M_MIN = (CYCLING_SPEED_KMH * 1000.0) / 60.0
+CYCLING_SPEED_M_S = CYCLING_SPEED_M_MIN / 60.0
+
 # Human projected surface area under direct sun (~0.6 m^2 for standing/walking human)
 HUMAN_EXPOSED_AREA_M2 = 0.60
 
@@ -149,7 +154,7 @@ class Day10DynamicRouter:
             t = (hour_float - 13.0) / 3.0
             return (1.0 - t) * s13 + t * s16
 
-    def _generate_turn_guidance(self, route_nodes: list, departure_dt: datetime.datetime):
+    def _generate_turn_guidance(self, route_nodes: list, departure_dt: datetime.datetime, speed_m_s: float = WALKING_SPEED_M_S, travel_mode: str = 'walk'):
         """
         Produces detailed turn-by-turn navigation instructions with micro-navigation
         sidewalk side advisories and real-time sun angles.
@@ -171,7 +176,7 @@ class Day10DynamicRouter:
                 name = 'Connecting Street'
 
             # Advance dynamic time for this segment
-            transit_sec = length / WALKING_SPEED_M_S
+            transit_sec = length / speed_m_s
             hour_float = curr_dt.hour + (curr_dt.minute / 60.0) + (curr_dt.second / 3600.0)
             
             shade = self.get_interpolated_shade(u, v, 0, hour_float)
@@ -220,7 +225,8 @@ class Day10DynamicRouter:
         return steps
 
     def route(self, orig_lat: float, orig_lon: float, dest_lat: float, dest_lon: float,
-              departure_time_str: str = "12:30", w_shade: float = 2.8, w_safety: float = 1.3):
+              departure_time_str: str = "12:30", w_shade: float = 2.8, w_safety: float = 1.3,
+              travel_mode: str = "walk"):
         """
         Computes 3 routes:
         1. Fastest (length-only)
@@ -237,6 +243,14 @@ class Day10DynamicRouter:
         h, m = [int(x) for x in departure_time_str.split(":")]
         departure_dt = datetime.datetime.now().replace(hour=h, minute=m, second=0, microsecond=0)
         dep_hour_float = h + (m / 60.0)
+
+        if travel_mode == "bicycle":
+            speed_m_s = CYCLING_SPEED_M_S
+        elif travel_mode == "max_cool":
+            speed_m_s = WALKING_SPEED_M_S
+            w_shade = max(w_shade, 6.0)
+        else:
+            speed_m_s = WALKING_SPEED_M_S
 
         G_work = self.G.copy()
 
@@ -257,12 +271,28 @@ class Day10DynamicRouter:
             data['weight_fastest'] = length
             data['weight_static_cool'] = length * (1.0 + w_shade * (1.0 - static_shade))
             
-            # Day 10 Dynamic + Safe weight
-            data['weight_dynamic_safe'] = length * (
-                1.0 +
-                w_shade * (1.0 - dyn_shade) +
-                w_safety * (sw_quality - 1.0) * safety_mult
-            )
+            # Day 10 Dynamic + Safe weight (pedestrian vs cycling)
+            if travel_mode == "bicycle":
+                hw = meta['highway'] if meta else ''
+                if any(x in hw for x in ('steps', 'footway', 'pedestrian', 'corridor')):
+                    cycle_penalty = 4.0
+                elif any(x in hw for x in ('motorway', 'trunk')):
+                    cycle_penalty = 5.0
+                elif any(x in hw for x in ('residential', 'secondary', 'tertiary', 'living_street')):
+                    cycle_penalty = 0.8
+                else:
+                    cycle_penalty = 1.1
+                data['weight_dynamic_safe'] = length * (
+                    1.0 +
+                    w_shade * (1.0 - dyn_shade) +
+                    cycle_penalty * 0.4
+                )
+            else:
+                data['weight_dynamic_safe'] = length * (
+                    1.0 +
+                    w_shade * (1.0 - dyn_shade) +
+                    w_safety * (sw_quality - 1.0) * safety_mult
+                )
 
         # Compute paths
         try:
@@ -288,7 +318,7 @@ class Day10DynamicRouter:
                 v_curr = path[i + 1]
                 edge_data = G_work.get_edge_data(u_curr, v_curr, 0) or {}
                 l = float(edge_data.get('length', 1.0))
-                dt_step = l / WALKING_SPEED_M_S
+                dt_step = l / speed_m_s
                 
                 t_hour = curr_dt.hour + (curr_dt.minute / 60.0) + (curr_dt.second / 3600.0)
                 sh = self.get_interpolated_shade(u_curr, v_curr, 0, t_hour)
@@ -328,7 +358,7 @@ class Day10DynamicRouter:
             }
 
         # Turn guidance for the dynamic safe route
-        steps = self._generate_turn_guidance(path_dynamic, departure_dt)
+        steps = self._generate_turn_guidance(path_dynamic, departure_dt, speed_m_s=speed_m_s, travel_mode=travel_mode)
 
         # Comparative analysis
         solar_avoided_kj = round(routes['fastest']['solar_energy_kj'] - routes['dynamic_safe_cool']['solar_energy_kj'], 1)
@@ -337,6 +367,8 @@ class Day10DynamicRouter:
         detour_min = round(routes['dynamic_safe_cool']['duration_min'] - routes['fastest']['duration_min'], 1)
 
         return {
+            "travel_mode": travel_mode,
+            "speed_kmh": CYCLING_SPEED_KMH if travel_mode == "bicycle" else WALKING_SPEED_KMH,
             "departure_time": departure_time_str,
             "fastest": routes['fastest'],
             "static_coolest": routes['static_coolest'],

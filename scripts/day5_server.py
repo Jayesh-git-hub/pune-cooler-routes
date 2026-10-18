@@ -192,6 +192,14 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
             coolness = float(cool_str) if cool_str else 2.5
 
             mode = query.get('mode', ['dynamic'])[0]
+            travel_mode = query.get('travel_mode', ['walk'])[0].lower()
+            if travel_mode in ('cycle', 'bicycle'):
+                travel_mode = 'bicycle'
+            elif travel_mode in ('cool', 'max_cool'):
+                travel_mode = 'max_cool'
+                coolness = max(coolness, 6.0)
+            else:
+                travel_mode = 'walk'
 
             if not (orig_lat and orig_lon and dest_lat and dest_lon):
                 self._send_json({"error": "Missing coordinates"}, status=400)
@@ -202,7 +210,8 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 res = router_v10.route(
                     orig_lat=orig_lat, orig_lon=orig_lon,
                     dest_lat=dest_lat, dest_lon=dest_lon,
-                    departure_time_str=time_str, w_shade=coolness
+                    departure_time_str=time_str, w_shade=coolness,
+                    travel_mode=travel_mode
                 )
                 if not res:
                     self._send_json({"error": "No path found"}, status=404)
@@ -219,6 +228,8 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
 
                 routes_data = {
                     "mode": "dynamic_safe_cool",
+                    "travel_mode": travel_mode,
+                    "speed_kmh": res.get("speed_kmh", 4.8),
                     "departure_time": time_str,
                     "fastest": {
                         "distance_m": f['distance_m'],
