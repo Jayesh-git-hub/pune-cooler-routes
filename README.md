@@ -26,6 +26,22 @@ python scripts/day14_capstone_generator.py
 
 ---
 
+## 🌐 Deploy & Use Anywhere
+
+The platform can be accessed from any phone, tablet, or browser worldwide. See [DEPLOYMENT.md](DEPLOYMENT.md) for full instructions:
+
+- **⚡ Instant Live Access (10 Seconds):**
+  ```bash
+  # In terminal 1 (starts backend):
+  python scripts/day5_server.py 8050
+  # In terminal 2 (creates global HTTPS link):
+  npx localtunnel --port 8050
+  ```
+- **☁️ 24/7 Free Cloud Hosting:** One-click deployment configured for [Render](https://render.com) (`render.yaml` & `Procfile`) and [Railway](https://railway.app) (`Dockerfile`).
+- **📱 Mobile App Installation (PWA):** Open the URL on Chrome (Android) or Safari (iOS) and tap **"Add to Home Screen"** for offline navigation and `"📍 Use My GPS"`.
+
+---
+
 ## 📅 Complete 14-Day Sprint Summary
 
 | Day | Focus Area | Key Output & Deliverables |

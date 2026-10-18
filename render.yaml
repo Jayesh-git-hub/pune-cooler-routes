@@ -1,0 +1,10 @@
+﻿services:
+  - type: web
+    name: pune-cooler-routes
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/day5_server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9

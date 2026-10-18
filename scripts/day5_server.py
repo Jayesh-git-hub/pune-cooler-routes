@@ -353,17 +353,20 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_error(500, f"GPX export error: {e}")
 
-def run_server(port=8050):
+def run_server(host="0.0.0.0", port=None):
     global router_v5, router_v6, router_v10
-    print("Loading Day 5, Day 6, and Day 10/11 routing engines...")
+    if port is None:
+        port = int(os.environ.get("PORT", sys.argv[1] if len(sys.argv) > 1 else 8050))
+    print("Loading Day 5, Day 6, and Day 10-14 routing engines...")
     router_v5 = CoolerRouter()
     router_v6 = Day6MultiCriteriaRouter()
     router_v10 = Day10DynamicRouter()
-    server_address = ('127.0.0.1', port)
+    server_address = (host, port)
     httpd = HTTPServer(server_address, CoolerHTTPHandler)
     print(f"\n=======================================================")
-    print(f" Pune Cooler Routes - Server Live (Days 1 to 11)")
-    print(f" Port: http://127.0.0.1:{port}")
+    print(f" Pune Cooler Routes - Server Live (Production Deployment)")
+    print(f" Listening on: http://{host}:{port}")
+    print(f" Local URL:    http://127.0.0.1:{port}")
     print(f"=======================================================\n")
     try:
         httpd.serve_forever()
@@ -373,5 +376,6 @@ def run_server(port=8050):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8050
-    run_server(port=port)
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", sys.argv[1] if len(sys.argv) > 1 else 8050))
+    run_server(host=host, port=port)
