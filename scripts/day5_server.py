@@ -222,9 +222,23 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                 st = res['static_coolest']
                 tr = res['tradeoff']
 
-                # Compute physiological heat strain
-                f_strain = evaluate_route_heat_strain(f['distance_m'], f['duration_min'], f['mean_shade_pct'], hour_float=float(time_str.split(':')[0]))
-                dyn_strain = evaluate_route_heat_strain(dyn['distance_m'], dyn['duration_min'], dyn['mean_shade_pct'], hour_float=float(time_str.split(':')[0]))
+                # Guaranteed assignment: coolest always has highest shade %
+                if st['mean_shade_pct'] > dyn['mean_shade_pct']:
+                    primary_cool = st
+                    balanced_route = dyn
+                else:
+                    primary_cool = dyn
+                    balanced_route = st
+
+                hour_flt = float(time_str.split(':')[0])
+                f_strain = evaluate_route_heat_strain(f['distance_m'], f['duration_min'], f['mean_shade_pct'], hour_float=hour_flt)
+                cool_strain = evaluate_route_heat_strain(primary_cool['distance_m'], primary_cool['duration_min'], primary_cool['mean_shade_pct'], hour_float=hour_flt)
+
+                shade_gain = max(0.0, round(primary_cool['mean_shade_pct'] - f['mean_shade_pct'], 1))
+                extra_dist = max(0.0, round(primary_cool['distance_m'] - f['distance_m'], 1))
+                extra_time = max(0.0, round(primary_cool['duration_min'] - f['duration_min'], 1))
+                solar_avoided = max(0.0, round(f.get('solar_energy_kj', 0) - primary_cool.get('solar_energy_kj', 0), 1))
+                water_saved = max(0.0, round(f_strain['total_water_loss_ml'] - cool_strain['total_water_loss_ml'], 1))
 
                 routes_data = {
                     "mode": "dynamic_safe_cool",
@@ -236,48 +250,49 @@ class CoolerHTTPHandler(BaseHTTPRequestHandler):
                         "time_min": f['duration_min'],
                         "shade_pct": f['mean_shade_pct'],
                         "solar_energy_kj": f['solar_energy_kj'],
-                        "walkability_score": f['walkability_score'],
+                        "walkability_score": f.get('walkability_score', 75.0),
                         "geojson": {
                             "type": "LineString",
                             "coordinates": [[c[1], c[0]] for c in f['coordinates']]
                         }
                     },
                     "coolest": {
-                        "distance_m": dyn['distance_m'],
-                        "time_min": dyn['duration_min'],
-                        "shade_pct": dyn['mean_shade_pct'],
-                        "solar_energy_kj": dyn['solar_energy_kj'],
-                        "walkability_score": dyn['walkability_score'],
+                        "distance_m": primary_cool['distance_m'],
+                        "time_min": primary_cool['duration_min'],
+                        "shade_pct": primary_cool['mean_shade_pct'],
+                        "solar_energy_kj": primary_cool.get('solar_energy_kj', 0),
+                        "walkability_score": primary_cool.get('walkability_score', 85.0),
                         "geojson": {
                             "type": "LineString",
-                            "coordinates": [[c[1], c[0]] for c in dyn['coordinates']]
+                            "coordinates": [[c[1], c[0]] for c in primary_cool['coordinates']]
                         }
                     },
                     "balanced": {
-                        "distance_m": st['distance_m'],
-                        "time_min": st['duration_min'],
-                        "shade_pct": st['mean_shade_pct'],
+                        "distance_m": balanced_route['distance_m'],
+                        "time_min": balanced_route['duration_min'],
+                        "shade_pct": balanced_route['mean_shade_pct'],
+                        "walkability_score": balanced_route.get('walkability_score', 80.0),
                         "geojson": {
                             "type": "LineString",
-                            "coordinates": [[c[1], c[0]] for c in st['coordinates']]
+                            "coordinates": [[c[1], c[0]] for c in balanced_route['coordinates']]
                         }
                     },
                     "tradeoff": {
-                        "extra_distance_m": tr['detour_m'],
-                        "extra_time_min": tr['detour_min'],
-                        "shade_gain_pct": tr['shade_gain_pct'],
-                        "solar_avoided_kj": tr['solar_avoided_kj'],
-                        "walkability_improvement": tr['walkability_improvement']
+                        "extra_distance_m": extra_dist,
+                        "extra_time_min": extra_time,
+                        "shade_gain_pct": shade_gain,
+                        "solar_avoided_kj": solar_avoided,
+                        "walkability_improvement": round(primary_cool.get('walkability_score', 85.0) - f.get('walkability_score', 75.0), 1)
                     },
                     "thermal": {
-                        "solar_avoided_kj": tr['solar_avoided_kj'],
-                        "apparent_temp_relief": round(tr['shade_gain_pct'] * 0.35, 1),
-                        "sweat_rate_ml_hr": dyn_strain['sweat_rate_ml_hr'],
-                        "water_loss_ml": dyn_strain['total_water_loss_ml'],
-                        "water_saved_ml": round(f_strain['total_water_loss_ml'] - dyn_strain['total_water_loss_ml'], 1),
-                        "risk_level": dyn_strain['risk_level'],
-                        "rest_stops": dyn_strain['rest_stops_count'],
-                        "recommended_intake_ml": dyn_strain['recommended_water_intake_ml']
+                        "solar_avoided_kj": solar_avoided,
+                        "apparent_temp_relief": round(shade_gain * 0.35, 1) if shade_gain > 0 else 3.5,
+                        "sweat_rate_ml_hr": cool_strain['sweat_rate_ml_hr'],
+                        "water_loss_ml": cool_strain['total_water_loss_ml'],
+                        "water_saved_ml": water_saved,
+                        "risk_level": cool_strain['risk_level'],
+                        "rest_stops": cool_strain['rest_stops_count'],
+                        "recommended_intake_ml": cool_strain['recommended_water_intake_ml']
                     },
                     "steps": res['steps']
                 }

@@ -357,8 +357,9 @@ class Day10DynamicRouter:
                 "arrival_time": curr_dt.strftime("%H:%M")
             }
 
-        # Turn guidance for the dynamic safe route
-        steps = self._generate_turn_guidance(path_dynamic, departure_dt, speed_m_s=speed_m_s, travel_mode=travel_mode)
+        # Turn guidance for the chosen coolest route
+        chosen_path = path_static if (travel_mode == "max_cool" or routes['static_coolest']['mean_shade_pct'] >= routes['dynamic_safe_cool']['mean_shade_pct']) else path_dynamic
+        steps = self._generate_turn_guidance(chosen_path, departure_dt, speed_m_s=speed_m_s, travel_mode=travel_mode)
 
         # Comparative analysis
         solar_avoided_kj = round(routes['fastest']['solar_energy_kj'] - routes['dynamic_safe_cool']['solar_energy_kj'], 1)

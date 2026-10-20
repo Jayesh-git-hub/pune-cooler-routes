@@ -410,7 +410,7 @@ function renderMetrics(data) {
     const ds = document.getElementById("deltaShade");
     if (dd) dd.innerText = `+${data.tradeoff.extra_distance_m} m`;
     if (dt) dt.innerText = `+${data.tradeoff.extra_time_min} min`;
-    if (ds) ds.innerText = `+${data.tradeoff.shade_gain_pct}%`;
+    if (ds) ds.innerText = `+${Math.max(0, data.tradeoff.shade_gain_pct)}%`;
   }
 
   const therm = data.thermal || (data.coolest ? data.coolest.thermal : null);
@@ -552,7 +552,7 @@ function renderHeatStrain(thermal) {
   if (thermal) {
     if (sr) sr.innerText = `${thermal.sweat_rate_ml_hr || 285} mL/h`;
     if (wl) wl.innerText = `${thermal.total_water_loss_ml || 90} mL`;
-    if (ws) ws.innerText = `+${thermal.water_saved_ml || 34} mL`;
+    if (ws) ws.innerText = (thermal.water_saved_ml && thermal.water_saved_ml > 0) ? `+${thermal.water_saved_ml} mL` : (thermal.water_saved_ml === 0 ? "0 mL" : `${thermal.water_saved_ml} mL`);
     if (rs) rs.innerText = `${thermal.canopy_rest_stops || 1} stop`;
     if (ha && thermal.hydration_advice) ha.innerText = thermal.hydration_advice;
   }
